@@ -8,6 +8,7 @@ export type LaunchConfigurationOptions = {
     scheme?: string;
     configuration?: string;
   };
+  isExpo?: boolean;
   android?: {
     buildType?: string;
     productFlavor?: string;

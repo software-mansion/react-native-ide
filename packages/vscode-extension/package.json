@@ -162,6 +162,10 @@
                 "type": "string",
                 "description": "Location of the React Native application root folder relative to the workspace. This is used for monorepo type setups when the workspace root is not the root of the React Native project. The IDE extension tries to locate the React Native application root automatically, but in case it failes to do so (i.e. there are multiple applications defined in the workspace), you can use this setting to override the location."
               },
+              "isExpo": {
+                "type": "boolean",
+                "description": "IDE tries to detect whether project uses Expo or React Native community CLI. This is needed when starting the bundler. If your project uses Expo but IDE fails to automatically detect it, you can set this parameter to `true` to force the use of Expo CLI."
+              },
               "env": {
                 "type": "object",
                 "description": "Environment variables to be passed to all build/run commands that the IDE is launching."
