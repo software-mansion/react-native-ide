@@ -1,4 +1,4 @@
-import { Webview, Disposable } from "vscode";
+import { Webview, Disposable, workspace } from "vscode";
 import { coerce, gte } from "semver";
 import { Logger } from "../Logger";
 import fs from "fs";
@@ -123,21 +123,32 @@ export class DependencyChecker implements Disposable {
   }
 
   public async checkCocoaPodsInstalled() {
-    const installed = await checkIfCLIInstalled("pod --version", {
-      env: { ...process.env, LANG: "en_US.UTF-8" },
+    const env = { ...process.env, LANG: "en_US.UTF-8" };
+    let isCocoaPodsInstalled = await checkIfCLIInstalled("pod --version", {
+      env,
     });
+
+    // If `pod --version` fails, try `bundle exec pod --version` as a second attempt
+    if (!isCocoaPodsInstalled && workspace.workspaceFolders?.length) {
+      isCocoaPodsInstalled = await checkIfCLIInstalled("bundle exec pod --version", {
+        env,
+        // Run the command in the current project directory
+        cwd: workspace.workspaceFolders?.[0].uri.fsPath,
+      });
+    }
+
     const errorMessage =
       "CocoaPods was not found. Make sure to [install CocoaPods](https://guides.cocoapods.org/using/getting-started.html).";
     this.webview.postMessage({
       command: "isCocoaPodsInstalled",
       data: {
-        installed,
+        installed: isCocoaPodsInstalled,
         info: "Used for installing iOS dependencies.",
-        error: installed ? undefined : errorMessage,
+        error: isCocoaPodsInstalled ? undefined : errorMessage,
       },
     });
-    Logger.debug("CocoaPods installed:", installed);
-    return installed;
+    Logger.debug("CocoaPods installed:", isCocoaPodsInstalled);
+    return isCocoaPodsInstalled;
   }
 
   public async checkReactNativeInstalled() {
