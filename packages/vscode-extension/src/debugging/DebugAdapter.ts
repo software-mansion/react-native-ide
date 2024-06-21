@@ -25,6 +25,72 @@ import {
   CDPRemoteObject,
 } from "./cdp";
 import { VariableStore } from "./variableStore";
+import { Cdp } from "./api";
+
+// https://github.com/microsoft/vscode-js-debug/blob/1ed8d34f26dbd17accc0ad42d141407103ef7c25/src/cdp/protocol.ts
+type CDPRequest = {
+  "Runtime.enable": Cdp.Runtime.EnableParams;
+  "Debugger.enable": Cdp.Debugger.EnableParams;
+  "Debugger.setPauseOnExceptions": Cdp.Debugger.SetPauseOnExceptionsParams;
+  "Debugger.setAsyncCallStackDepth": Cdp.Debugger.SetAsyncCallStackDepthParams;
+  "Debugger.setBlackboxPatterns": Cdp.Debugger.SetBlackboxPatternsParams;
+  "Runtime.runIfWaitingForDebugger": Cdp.Runtime.RunIfWaitingForDebuggerParams;
+  "Runtime.evaluate": Cdp.Runtime.EvaluateParams;
+  "Runtime.getProperties": Cdp.Runtime.GetPropertiesParams;
+  "Debugger.setBreakpointByUrl": Cdp.Debugger.SetBreakpointByUrlParams;
+  "Debugger.removeBreakpoint": Cdp.Debugger.RemoveBreakpointParams;
+  "Debugger.resume": Cdp.Debugger.ResumeParams;
+  "Debugger.stepOver": Cdp.Debugger.StepOverParams;
+};
+
+interface CDPResponse {
+  "Runtime.executionContextCreated": Cdp.Runtime.ExecutionContextCreatedEvent;
+  "Debugger.scriptParsed": Cdp.Debugger.ScriptParsedEvent;
+  "Debugger.paused": Cdp.Debugger.PausedEvent;
+  "Debugger.resumed": Cdp.Debugger.ResumedEvent;
+  "Runtime.executionContextsCleared": Cdp.Runtime.ExecutionContextsClearedEvent;
+  "Runtime.consoleAPICalled": Cdp.Runtime.ConsoleAPICalledEvent;
+}
+
+type CDPMessageRequestCommand<Method extends keyof CDPRequest> = {
+  id: number; // we always set id
+  method: Method;
+  params: CDPRequest[Method];
+  sessionId?: string;
+};
+
+type CDPMessageResponseCommand = {
+  id: number; // we always set id
+  sessionId?: string;
+} & {
+  [Method in keyof CDPResponse as number]: {
+    method: Method;
+    params: CDPResponse[Method];
+  };
+}[number];
+
+interface CDPMessageError {
+  id: number;
+  method?: string;
+  error: { code: number; message: string };
+  sessionId?: string;
+}
+
+interface CDPMessageSuccess {
+  id: number;
+  result: object;
+  sessionId?: string;
+}
+
+type CDPMessageResponse = CDPMessageResponseCommand | CDPMessageSuccess | CDPMessageError;
+
+function isCDPError(message: CDPMessageResponse): message is CDPMessageError {
+  return Object.hasOwn(message, "error") !== undefined;
+}
+
+function isCDPSuccess(message: CDPMessageResponse): message is CDPMessageSuccess {
+  return Object.hasOwn(message, "result");
+}
 
 function compareIgnoringHost(url1: string, url2: string) {
   try {
@@ -103,8 +169,13 @@ export class DebugAdapter extends DebugSession {
     });
 
     this.connection.on("message", async (data) => {
-      const message = JSON.parse(data.toString());
-      if (message.result) {
+      const message = JSON.parse(data.toString()) as CDPMessageResponse;
+
+      if (isCDPError(message)) {
+        return;
+      }
+
+      if (isCDPSuccess(message)) {
         const resolve = this.cdpMessagePromises.get(message.id);
         this.cdpMessagePromises.delete(message.id);
         if (resolve) {
@@ -112,6 +183,7 @@ export class DebugAdapter extends DebugSession {
         }
         return;
       }
+
       switch (message.method) {
         case "Runtime.executionContextCreated":
           const context = message.params.context;
@@ -289,22 +361,16 @@ export class DebugAdapter extends DebugSession {
         (scope: any) => scope.type === "local"
       )?.object?.objectId;
       const localScopeObjectId = this.variableStore.adaptCDPObjectId(localScopeCDPObjectId);
-      const localScopeVariables = await this.variableStore.get(
-        localScopeObjectId,
-        (params: object) => {
-          return this.sendCDPMessage("Runtime.getProperties", params);
-        }
-      );
+      const localScopeVariables = await this.variableStore.get(localScopeObjectId, (params) => {
+        return this.sendCDPMessage("Runtime.getProperties", params);
+      });
       const errorMessage = localScopeVariables.find((v) => v.name === "message")?.value;
       const isFatal = localScopeVariables.find((v) => v.name === "isFatal")?.value;
       const stackObjectId = localScopeVariables.find((v) => v.name === "stack")?.variablesReference;
 
-      const stackObjectProperties = await this.variableStore.get(
-        stackObjectId!,
-        (params: object) => {
-          return this.sendCDPMessage("Runtime.getProperties", params);
-        }
-      );
+      const stackObjectProperties = await this.variableStore.get(stackObjectId!, (params) => {
+        return this.sendCDPMessage("Runtime.getProperties", params);
+      });
 
       const stackFrames: Array<StackFrame> = [];
       // Unfortunately we can't get proper scope chanins here, because the debugger doesn't really stop at the frame where exception is thrown
@@ -315,7 +381,7 @@ export class DebugAdapter extends DebugSession {
             const index = parseInt(stackObjEntry.name, 10);
             const stackObjProperties = await this.variableStore.get(
               stackObjEntry.variablesReference,
-              (params: object) => {
+              (params) => {
                 return this.sendCDPMessage("Runtime.getProperties", params);
               }
             );
@@ -368,10 +434,9 @@ export class DebugAdapter extends DebugSession {
   }
 
   private cdpMessageId = 0;
-  private cdpMessagePromises: Map<number, (result: any) => void> = new Map();
-
-  public async sendCDPMessage(method: string, params: object) {
-    const message = {
+  private cdpMessagePromises: Map<number, (result: object) => void> = new Map();
+  public async sendCDPMessage<M extends keyof CDPRequest>(method: M, params: CDPRequest[M]) {
+    const message: CDPMessageRequestCommand<M> = {
       id: ++this.cdpMessageId,
       method: method,
       params: params,
@@ -439,6 +504,7 @@ export class DebugAdapter extends DebugSession {
         // in CDP line and column numbers are 0-based
         lineNumber: generatedPos.lineNumber1Based - 1,
         url: generatedPos.source,
+        // @ts-expect-error TODO(TS): check if columnNumber can ever be null here
         columnNumber: generatedPos.columnNumber0Based,
         condition: "",
       });
@@ -466,6 +532,7 @@ export class DebugAdapter extends DebugSession {
       const breakpoints = this.breakpoints.get(path) || [];
       breakpoints.forEach(async (bp) => {
         if (bp.verified) {
+          // @ts-expect-error TODO(TS): check if ID can be null here
           this.sendCDPMessage("Debugger.removeBreakpoint", { breakpointId: bp.getId() });
         }
         const newId = await this.setCDPBreakpoint(
@@ -508,6 +575,7 @@ export class DebugAdapter extends DebugSession {
         bp.verified &&
         !breakpoints.find((newBp) => newBp.line === bp.line && newBp.column === bp.column)
       ) {
+        // @ts-expect-error TODO(TS): check if ID can be null here
         this.sendCDPMessage("Debugger.removeBreakpoint", { breakpointId: bp.getId() });
       }
     });
@@ -575,12 +643,9 @@ export class DebugAdapter extends DebugSession {
     args: DebugProtocol.VariablesArguments
   ): Promise<void> {
     response.body = response.body || {};
-    response.body.variables = await this.variableStore.get(
-      args.variablesReference,
-      (params: object) => {
-        return this.sendCDPMessage("Runtime.getProperties", params);
-      }
-    );
+    response.body.variables = await this.variableStore.get(args.variablesReference, (params) => {
+      return this.sendCDPMessage("Runtime.getProperties", params);
+    });
     this.sendResponse(response);
   }
 

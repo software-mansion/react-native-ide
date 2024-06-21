@@ -1,5 +1,6 @@
 import { Variable } from "@vscode/debugadapter";
 import { CDPPropertyDescriptor, inferDAPVariableValueForCDPRemoteObject } from "./cdp";
+import Cdp from "./api";
 
 const getVariableId = (() => {
   let last = 1;
@@ -20,7 +21,7 @@ export class VariableStore {
    */
   public async get(
     id: number,
-    fetchProperties: (params: object) => Promise<any>
+    fetchProperties: (params: Cdp.Runtime.GetPropertiesParams) => Promise<any>
   ): Promise<Variable[]> {
     let properties: CDPPropertyDescriptor[];
     let isCDPObject: boolean;
@@ -28,6 +29,7 @@ export class VariableStore {
       const cdpObjectId = this.convertDAPObjectIdToCDP(id);
       properties = (
         await fetchProperties({
+          // @ts-ignore TODO(TS): check if ID can be undefined
           objectId: cdpObjectId,
           ownProperties: true,
         })
