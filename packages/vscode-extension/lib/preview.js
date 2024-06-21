@@ -15,7 +15,7 @@ function stringifyProps(obj) {
 }
 
 export function preview(component) {
-  if (component._source == null) {
+  if (component === undefined || component._source === null) {
     return;
   }
 

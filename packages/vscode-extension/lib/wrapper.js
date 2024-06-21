@@ -20,6 +20,15 @@ function isPreviewUrl(url) {
   return url.startsWith("preview://");
 }
 
+function getCurrentSceneName() {
+  const SceneTracker = require("react-native/Libraries/Utilities/SceneTracker");
+  return SceneTracker.getActiveScene().name;
+}
+
+function isRunningPreview() {
+  return isPreviewUrl(getCurrentSceneName());
+}
+
 function emptyNavigationHook() {
   return {
     getCurrentNavigationDescriptor: () => undefined,
@@ -73,9 +82,7 @@ export function PreviewAppWrapper({ children, ...rest }) {
   );
 
   const closePreview = useCallback(() => {
-    const SceneTracker = require("react-native/Libraries/Utilities/SceneTracker");
-    const isRunningPreview = isPreviewUrl(SceneTracker.getActiveScene().name);
-    if (isRunningPreview) {
+    if (isRunningPreview()) {
       AppRegistry.runApplication("main", {
         rootTag,
         initialProps: {},
@@ -205,6 +212,10 @@ export function PreviewAppWrapper({ children, ...rest }) {
       };
       LoadingView.hide = () => {
         devtoolsAgent._bridge.send("RNIDE_fastRefreshComplete");
+        if (isRunningPreview()) {
+          // refresh preview component
+          openPreview(getCurrentSceneName());
+        }
       };
     }
   }, [devtoolsAgent]);
@@ -240,10 +251,8 @@ export function PreviewAppWrapper({ children, ...rest }) {
       onLayout={() => {
         setHasLayout(true);
         if (devtoolsAgent) {
-          const SceneTracker = require("react-native/Libraries/Utilities/SceneTracker");
-          const sceneName = SceneTracker.getActiveScene().name;
-          const isRunningPreview = isPreviewUrl(sceneName);
-          if (isRunningPreview) {
+          if (isRunningPreview()) {
+            const sceneName = getCurrentSceneName();
             const preview = (global.__RNIDE_previews || new Map()).get(sceneName);
             devtoolsAgent._bridge.send("RNIDE_navigationChanged", {
               displayName: `preview:${preview.name}`, // TODO: make names unique if there are multiple previews of the same component
