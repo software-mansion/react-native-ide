@@ -16,6 +16,7 @@ const ProjectContext = createContext<ProjectContextProps>({
     previewURL: undefined,
     selectedDevice: undefined,
     previewZoom: undefined,
+    zoomControlsVisible: true,
   },
   deviceSettings: {
     appearance: "dark",
@@ -35,6 +36,7 @@ export default function ProjectProvider({ children }: PropsWithChildren) {
     previewURL: undefined,
     selectedDevice: undefined,
     previewZoom: undefined,
+    zoomControlsVisible: true,
   });
   const [deviceSettings, setDeviceSettings] = useState<DeviceSettings>({
     appearance: "dark",

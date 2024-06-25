@@ -436,6 +436,7 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
           </Resizable>
         )}
       </div>
+      {projectState.zoomControlsVisible && (
       <div className="button-group-left">
         <ZoomControls
           zoomLevel={zoomLevel}
@@ -444,6 +445,7 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
           wrapperDivRef={wrapperDivRef}
         />
       </div>
+      )}
     </>
   );
 }
