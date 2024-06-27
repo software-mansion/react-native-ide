@@ -10,7 +10,6 @@ interface UrlBarProps {
 
 function UrlBar({ project, disabled }: UrlBarProps) {
   const [urlList, setUrlList] = useState<{ name: string; id: string }[]>([]);
-
   useEffect(() => {
     function handleNavigationChanged(navigationData: { displayName: string; id: string }) {
       const newRecord = { name: navigationData.displayName, id: navigationData.id };
@@ -57,7 +56,10 @@ function UrlBar({ project, disabled }: UrlBarProps) {
         <span className="codicon codicon-refresh" />
       </IconButton>
       <IconButton
-        onClick={() => project.goHome()}
+        onClick={() => {
+          project.goHome();
+          setUrlList([]);
+        }}
         tooltip={{
           label: "Go to main screen",
           side: "bottom",
