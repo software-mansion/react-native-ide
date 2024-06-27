@@ -3,7 +3,11 @@ import styles from "./styles.module.css";
 import Button from "../../Button";
 import clsx from "clsx";
 
-const PricingPlansList = () => {
+interface PricingPlansListProps {
+  earlyBirdLicenseCallback: () => void;
+}
+
+const PricingPlansList = ({ earlyBirdLicenseCallback }: PricingPlansListProps) => {
   const [isMonthly, setIsMonthly] = useState(true);
 
   const individualMonthly = (
@@ -99,9 +103,7 @@ const PricingPlansList = () => {
               2025. Early bird discount ends with Beta.
             </p>
             <div className={styles.plan__spacer} />
-            <Button href="/" disabled>
-              Available early June
-            </Button>
+            <Button onClick={earlyBirdLicenseCallback}>Choose</Button>
           </div>
         </li>
 
