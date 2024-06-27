@@ -12,12 +12,18 @@ export class PreviewCodeLensProvider implements CodeLensProvider {
     document: TextDocument,
     token: CancellationToken
   ): CodeLens[] | Thenable<CodeLens[]> {
+    const text = document.getText();
+
+    // imported preview
+    if (!text.includes("react-native-ide")) {
+      return [];
+    }
+
     const regex = /\bpreview\b\s*\(/g;
-    let matches;
     const codeLenses = [];
 
-    while ((matches = regex.exec(document.getText()))) {
-      const line = document.lineAt(document.positionAt(matches.index).line);
+    for (const match of text.matchAll(regex)) {
+      const line = document.lineAt(document.positionAt(match.index).line);
       const range = new Range(line.lineNumber, 0, line.lineNumber, line.text.length);
       const command: Command = {
         title: "Open preview",
