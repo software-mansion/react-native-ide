@@ -73,10 +73,12 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
       ? iOSRuntimes.map((runtime) => ({
           value: runtime.identifier,
           label: runtime.name,
+          disabled: !runtime.available,
         }))
       : androidImages.map((systemImage) => ({
           value: systemImage.location,
           label: systemImage.name,
+          disabled: !systemImage.available,
         }));
 
   async function createDevice() {

@@ -29,6 +29,7 @@ export type AndroidSystemImageInfo = {
   name: string;
   location: string;
   apiLevel: number;
+  available: boolean;
 };
 
 export type IOSDeviceTypeInfo = {
@@ -42,6 +43,7 @@ export type IOSRuntimeInfo = {
   name: string;
   version: string;
   supportedDeviceTypes: IOSDeviceTypeInfo[];
+  available: boolean;
 };
 
 export interface DeviceManagerEventMap {
