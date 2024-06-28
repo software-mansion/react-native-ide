@@ -15,14 +15,13 @@ const ModalContext = createContext<ModalContextProps>({
 
 export default function ModalProvider({ children }: { children: React.ReactNode }) {
   const [title, setTitle] = useState("");
-  const [component, setComponent] = useState(<></>);
+  const [component, setComponent] = useState<React.ReactNode>(<></>);
   const [open, setOpen] = useState(false);
   const [headerShown, showHeader] = useState(true);
 
-  const openModal = (title: string, component: React.ReactNode) => {
-    setTitle(title);
-    // @ts-ignore TODO see this further but i think it's fine
-    setComponent(component);
+  const openModal = (_title: string, _component: React.ReactNode) => {
+    setTitle(_title);
+    setComponent(_component);
     setOpen(true);
   };
 

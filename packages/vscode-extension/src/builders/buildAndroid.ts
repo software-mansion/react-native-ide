@@ -9,7 +9,7 @@ import fs from "fs";
 import { OutputChannel, workspace } from "vscode";
 import { extensionContext } from "../utilities/extensionContext";
 import { BuildAndroidProgressProcessor } from "./BuildAndroidProgressProcessor";
-import { getLaunchConfiguration } from "../utilities/launchConfiguration";
+import { getDefaultLaunchConfiguration } from "../utilities/launchConfiguration";
 import { EXPO_GO_PACKAGE_NAME, downloadExpoGo, isExpoGoProject } from "./expoGo";
 import { Platform } from "../common/DeviceManager";
 import { getReactNativeVersion } from "../utilities/reactNative";
@@ -75,7 +75,7 @@ export async function buildAndroid(
     return { apkPath, packageName: EXPO_GO_PACKAGE_NAME };
   }
   const androidSourceDir = getAndroidSourceDir(appRootFolder);
-  const buildOptions = getLaunchConfiguration();
+  const buildOptions = getDefaultLaunchConfiguration();
   const productFlavor = buildOptions.android?.productFlavor || "";
   const buildType = buildOptions.android?.buildType || "debug";
   const gradleArgs = [

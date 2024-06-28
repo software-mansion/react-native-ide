@@ -5,8 +5,9 @@ import { Logger } from "../Logger";
 import { extensionContext, getAppRootFolder } from "../utilities/extensionContext";
 import { Devtools } from "./devtools";
 import stripAnsi from "strip-ansi";
-import { getLaunchConfiguration } from "../utilities/launchConfiguration";
+import { getDefaultLaunchConfiguration } from "../utilities/launchConfiguration";
 import fs from "fs";
+import { findAppRootFolder } from "../extension";
 
 export interface MetroDelegate {
   onBundleError(): void;
@@ -128,8 +129,12 @@ export class Metro implements Disposable {
     resetCache: boolean,
     progressListener: (newStageProgress: number) => void
   ) {
+    const launchConfiguration = getDefaultLaunchConfiguration();
+
     const appRootFolder = getAppRootFolder();
-    const launchConfiguration = getLaunchConfiguration();
+
+    Logger.info("Starting Metro -->", launchConfiguration.appRoot);
+
     await this.devtools.ready();
 
     const libPath = path.join(extensionContext.extensionPath, "lib");
@@ -231,9 +236,13 @@ export class Metro implements Disposable {
       // pageId can sometimes be negative so we can't just use .split('-') here
       const matches = page.id.match(/([^-]+)-(-?\d+)/);
 
-      if (!matches) continue;
+      if (!matches) {
+        continue;
+      }
       const pageId = parseInt(matches[2]);
-      if (pageId !== -1) continue;
+      if (pageId !== -1) {
+        continue;
+      }
       //If deviceId is a number we want to pick the highest one, with expo it's never a number and we pick the latest record
       if (Number.isInteger(matches[1])) {
         const deviceId = parseInt(matches[1]);
@@ -273,7 +282,7 @@ function shouldUseExpoCLI() {
   // 1. expo cli package is present in the app's node_modules (we can resolve it using require.resolve)
   // 2. package.json has expo scripts in it (i.e. "expo start" or "expo build" scripts are present in the scripts section of package.json)
   // 3. the user doesn't use a custom metro config option – this is only available for RN CLI projects
-  const config = getLaunchConfiguration();
+  const config = getDefaultLaunchConfiguration();
   if (config.isExpo) {
     return true;
   }

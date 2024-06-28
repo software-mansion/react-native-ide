@@ -1,0 +1,53 @@
+{
+  "private": true,
+  "name": "@acme/app-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "expo start",
+    "lint": "eslint --ext js,ts,tsx .",
+    "build": "expo export --output-dir ./build --platform all",
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@acme/feature-home": "*",
+    "@expo/metro-runtime": "^3.2.1",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo": "^51.0.8",
+    "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.14",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.1",
+    "react-native-web": "~0.19.11"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "*",
+    "@babel/core": "^7.24.5",
+    "@types/react": "~18.2.79",
+    "@types/react-dom": "~18.2.25",
+    "babel-preset-expo": "~11.0.5"
+  },
+  "eslintConfig": {
+    "extends": "@acme/eslint-config",
+    "ignorePatterns": [
+      "node_modules",
+      "build",
+      ".expo",
+      ".expo-shared"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "*.js"
+        ],
+        "env": {
+          "node": true
+        }
+      }
+    ]
+  }
+}

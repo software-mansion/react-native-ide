@@ -1,0 +1,38 @@
+{
+  "private": true,
+  "name": "@acme/monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:mobile": "turbo dev --filter=\"{./apps/mobile}...\"",
+    "dev:packages": "turbo dev --filter=\"{./packages/*}\"",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "build": "turbo build",
+    "build:mobile": "turbo build --filter=\"...{./apps/mobile}\"",
+    "build:packages": "turbo build --filter=\"{./packages/*}\"",
+    "build:web": "turbo build --filter=\"...{./apps/web}\""
+  },
+  "devDependencies": {
+    "turbo": "^1.10.7",
+    "typescript": "^4.9.5"
+  },
+  "yarn": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@babel/*",
+        "expo-modules-*",
+        "typescript"
+      ]
+    }
+  },
+  "prettier": {
+    "printWidth": 100,
+    "tabWidth": 2,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  }
+}

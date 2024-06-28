@@ -90,6 +90,12 @@
           ],
           "description": "Controlls location of the IDE panel. Due to vscode API limitations, when secondary side panel is selected, you need to manually move the IDE panel to the secondary side panel. Changing this option closes and reopens the IDE."
         },
+        "ReactNativeIDE.appRoot": {
+          "type": "string",
+          "scope": "window",
+          "default": ".",
+          "description": "Location of the React Native application root folder relative to the workspace. This is used for monorepo type setups when the workspace root is not the root of the React Native project. The IDE extension tries to locate the React Native application root automatically, but in case it failes to do so (i.e. there are multiple applications defined in the workspace), you can use this setting to override the location."
+        },
         "ReactNativeIDE.inspectorExcludePattern": {
           "type": "string",
           "scope": "window",
