@@ -37,6 +37,7 @@ import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
 const PREVIEW_ZOOM_KEY = "preview_zoom";
+const ZOOM_CONTROLS_VISIBLE_KEY = "zoom_controls_visible";
 
 export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public static currentProject: Project | undefined;
@@ -58,6 +59,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     previewURL: undefined,
     previewZoom: extensionContext.workspaceState.get(PREVIEW_ZOOM_KEY),
     selectedDevice: undefined,
+    zoomControlsVisible: extensionContext.workspaceState.get(ZOOM_CONTROLS_VISIBLE_KEY) ?? true,
   };
 
   private deviceSettings: DeviceSettings = extensionContext.workspaceState.get(
@@ -409,6 +411,12 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public async updatePreviewZoomLevel(zoom: ZoomLevelType): Promise<void> {
     this.updateProjectState({ previewZoom: zoom });
     extensionContext.workspaceState.update(PREVIEW_ZOOM_KEY, zoom);
+  }
+
+  public async togglePreviewZoomVisibility() {
+    const newZoomControlState = !this.projectState.zoomControlsVisible;
+    this.updateProjectState({ zoomControlsVisible: newZoomControlState });
+    extensionContext.workspaceState.update(ZOOM_CONTROLS_VISIBLE_KEY, newZoomControlState);
   }
 
   public async selectDevice(deviceInfo: DeviceInfo, forceCleanBuild = false) {

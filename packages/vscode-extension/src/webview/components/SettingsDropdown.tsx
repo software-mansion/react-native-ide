@@ -115,6 +115,15 @@ function SettingsDropdown({ project, isDeviceRunning, children, disabled }: Sett
             </DropdownMenu.Portal>
           </DropdownMenu.Sub>
 
+          <DropdownMenu.Item
+            className="dropdown-menu-item"
+            onSelect={() => {
+              project.togglePreviewZoomVisibility();
+            }}>
+            <span className="codicon codicon-zoom-in" />
+            Toggle zoom controls visibility
+          </DropdownMenu.Item>
+
           <DropdownMenu.Separator className="dropdown-menu-separator" />
 
           <DropdownMenu.Item

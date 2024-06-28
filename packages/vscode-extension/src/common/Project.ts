@@ -25,6 +25,7 @@ export type ProjectState = {
   previewURL: string | undefined;
   selectedDevice: DeviceInfo | undefined;
   previewZoom: ZoomLevelType | undefined; // Preview specific. Consider extracting to different location if we store more preview state
+  zoomControlsVisible: boolean;
 };
 
 export type ZoomLevelType = number | "Fit";
@@ -97,6 +98,7 @@ export interface ProjectInterface {
   goHome(): Promise<void>;
   selectDevice(deviceInfo: DeviceInfo): Promise<void>;
   updatePreviewZoomLevel(zoom: ZoomLevelType): Promise<void>;
+  togglePreviewZoomVisibility(): Promise<void>;
 
   getDeviceSettings(): Promise<DeviceSettings>;
   updateDeviceSettings(deviceSettings: DeviceSettings): Promise<void>;
