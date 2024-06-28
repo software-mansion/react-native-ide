@@ -1,0 +1,79 @@
+.plan__name {
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: var(--swm-green-light-100);
+  display: flex;
+  gap: 16px;
+}
+
+.plan__price {
+  font-weight: 700;
+  margin-top: 8px;
+  font-size: 36px;
+  margin-bottom: 0px;
+}
+
+.plan__price .plan__price_second_line {
+  font-size: 16px;
+  font-weight: 400;
+}
+.plan__price .plan__price_strikethrough {
+  text-decoration: line-through;
+  color: var(--swm-navy-light-60);
+  font-weight: 400;
+}
+
+.plan__features {
+  margin: 8px 0 24px 0;
+}
+
+.plan__spacer {
+  flex-grow: 1;
+}
+
+.plan__tagline {
+  margin-top: 4px;
+  margin-bottom: 24px;
+  font-size: 16px;
+  color: var(--swm-navy-light-60);
+}
+
+.plan__tagline a {
+  color: var(--swm-navy-light-60);
+  text-decoration: underline;
+}
+
+.plan_pay_annually {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+}
+
+.plan_pay_annually p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.plan_pay_annually p:first-child {
+  /* align-items: end; */
+  justify-content: end;
+}
+
+.plan__currency {
+  font-weight: 400;
+}
+
+.plan_pay_annually__discount {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--swm-navy-light-80);
+  background-color: var(--swm-yellow-light-60);
+  border-radius: 8px;
+  padding: 2px 4px;
+  margin-left: 8px;
+}

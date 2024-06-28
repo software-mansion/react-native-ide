@@ -1,0 +1,21 @@
+.item {
+  display: block;
+  height: 100%;
+}
+
+.plan__container {
+  border: 1px solid var(--swm-border);
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--swm-off-background);
+}
+
+.plan__container__bold {
+  border: 2px solid var(--swm-border);
+}
+
+.plan__container ul {
+  padding-left: 24px;
+}

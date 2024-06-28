@@ -1,0 +1,32 @@
+.plan__special_offer__wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  top: -25px;
+}
+
+.plan__special_offer {
+  color: var(--swm-red-light-80);
+  position: absolute;
+  text-align: center;
+  background-color: var(--swm-red-light-20);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-weight: bold;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.plan__highlight {
+  animation: highlight 2s infinite alternate ease-in-out;
+}
+
+@keyframes highlight {
+  0% {
+    box-shadow: 0px 0px 2px var(--swm-red-light-100);
+  }
+  100% {
+    box-shadow: 0px 0px 6px var(--swm-red-light-100);
+  }
+}

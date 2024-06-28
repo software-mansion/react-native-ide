@@ -25,11 +25,11 @@ const faqs = [
   },
   {
     topic: "When are you planning to close the public Beta?",
-    answer: "At the end of Q3 2024.",
+    answer: "We're aiming to close the beta at the end of Q3 2024.",
   },
 
   {
-    topic: "Why did you open-source the project?",
+    topic: "Why did you make the source code public?",
     answer:
       "We are well aware there are an infinite number of ways of setting up your React Native project. With access to the code you can adjust the React Native IDE to make it run with your codebase.",
   },
