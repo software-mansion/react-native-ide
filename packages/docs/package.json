@@ -20,7 +20,7 @@
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@mdx-js/react": "^1.6.22",
-    "@swmansion/t-rex-ui": "^0.0.10",
+    "@swmansion/t-rex-ui": "^0.0.12",
     "@mui/material": "^5.15.16",
     "@vercel/analytics": "^1.2.2",
     "clsx": "^1.2.1",
