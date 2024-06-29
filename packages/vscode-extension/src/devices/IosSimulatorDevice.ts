@@ -111,6 +111,42 @@ export class IosSimulatorDevice extends DeviceBase {
         `${settings.location.latitude.toString()},${settings.location.longitude.toString()}`,
       ]);
     }
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-s",
+      "com.apple.BiometricKit.enrollmentChanged",
+      settings.biometricEnrollment ? "1" : "0",
+    ]);
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-p",
+      "com.apple.BiometricKit.enrollmentChanged",
+    ]);
+  }
+  async sendBiometricAuthorization(match: boolean) {
+    const deviceSetLocation = getOrCreateDeviceSet();
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-p",
+      match
+        ? "com.apple.BiometricKit_Sim.fingerTouch.match"
+        : "com.apple.BiometricKit_Sim.fingerTouch.nomatch",
+    ]);
   }
 
   async configureMetroPort(bundleID: string, metroPort: number) {

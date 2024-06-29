@@ -16,6 +16,7 @@ export abstract class DeviceBase implements Disposable {
 
   abstract bootDevice(): Promise<void>;
   abstract changeSettings(settings: DeviceSettings): Promise<void>;
+  abstract sendBiometricAuthorization(match: boolean): Promise<void>;
   abstract installApp(build: BuildResult, forceReinstall: boolean): Promise<void>;
   abstract launchApp(build: BuildResult, metroPort: number, devtoolsPort: number): Promise<void>;
   abstract makePreview(): Preview;

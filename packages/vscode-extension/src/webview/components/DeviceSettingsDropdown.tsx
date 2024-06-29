@@ -100,7 +100,50 @@ function DeviceSettingsDropdown({ children, disabled }: DeviceSettingsDropdownPr
               </Slider.Root>
               <span className="device-settings-large-text-indicator" />
             </div>
+            <div className="device-settings-margin" />
 
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className="dropdown-menu-item">
+                <span className="codicon codicon-layout" />
+                Biometrics
+                <span className="codicon codicon-chevron-right right-slot" />
+              </DropdownMenu.SubTrigger>
+
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent className="dropdown-menu-content">
+                  <DropdownMenu.Item
+                    className="dropdown-menu-item"
+                    onSelect={() => {
+                      project.updateDeviceSettings({
+                        ...deviceSettings,
+                        biometricEnrollment: !deviceSettings.biometricEnrollment,
+                      });
+                    }}>
+                    <span className="codicon codicon-layout-sidebar-left" />
+                    Enrolment
+                    {deviceSettings.biometricEnrollment && (
+                      <span className="codicon codicon-check right-slot" />
+                    )}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="dropdown-menu-item"
+                    onSelect={() => {
+                      project.sendBiometricAuthorization(true);
+                    }}>
+                    <span className="codicon codicon-layout-sidebar-left" />
+                    Matching ID
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="dropdown-menu-item"
+                    onSelect={() => {
+                      project.sendBiometricAuthorization(false);
+                    }}>
+                    <span className="codicon codicon-layout-sidebar-left" />
+                    Non-Matching ID
+                  </DropdownMenu.Item>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
             <DropdownMenu.Arrow className="dropdown-menu-arrow" />
           </form>
           <Label>Device Location</Label>
