@@ -5,7 +5,7 @@ import { StartupMessage } from "../../../common/Project";
 
 interface StartupMessageProps {
   children: React.ReactNode;
-  className?: string;
+  className: string;
 }
 
 const dots = ["", ".", "..", "..."];

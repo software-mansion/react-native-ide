@@ -25,6 +25,10 @@
   width: 100%;
 }
 
+.preview-loader-slow-progress {
+  text-decoration: underline;
+}
+
 .preview-loader-stage-progress {
   color: var(--swm-startup-message);
 }
