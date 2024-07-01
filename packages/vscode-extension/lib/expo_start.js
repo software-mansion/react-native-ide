@@ -4,12 +4,15 @@ const {
   overrideModuleFromAppDir,
 } = require("./metro_helpers");
 
-// since expo cli doesn't accept metro-config as parameter, we override metro's loadConfig method
-const metroConfig = requireFromAppDir("metro-config");
-const origLoadConfig = metroConfig.loadConfig;
-metroConfig.loadConfig = async function (...args) {
-  const config = await origLoadConfig(...args);
-  return adaptMetroConfig(config);
+// Expo doesn't allow to customize Metro's config in any way. We need to inject
+// some config values to e.g. gather data from Metro in JSON, get correct line
+// numbers, etc.
+const runServerFork = requireFromAppDir("@expo/cli/build/src/start/server/metro/runServer-fork");
+const originalRunServer = runServerFork.runServer;
+runServerFork.runServer = async (...args) => {
+  const metroConfig = args[1];
+  args[1] = adaptMetroConfig(metroConfig);
+  return originalRunServer(...args);
 };
 
 // In addition, expo uses freeport-async to check whether provided port is busy.
