@@ -3,6 +3,7 @@ import { workspace } from "vscode";
 export type LaunchConfigurationOptions = {
   appRoot?: string;
   metroConfigPath?: string;
+  name?: string;
   env?: Record<string, string>;
   ios?: {
     scheme?: string;
@@ -18,10 +19,17 @@ export type LaunchConfigurationOptions = {
   };
 };
 
-export function getLaunchConfiguration(): LaunchConfigurationOptions {
+export function getLaunchConfigurations(): LaunchConfigurationOptions[] {
   return (
     workspace
       .getConfiguration("launch")
-      ?.configurations?.find((config: any) => config.type === "react-native-ide") || {}
+      ?.configurations?.filter((config: any) => config.type === "react-native-ide") || {}
   );
+}
+
+export function getDefaultLaunchConfiguration(): LaunchConfigurationOptions {
+  const launchConfigurations = getLaunchConfigurations();
+  const appRoot = workspace.getConfiguration("ReactNativeIDE").get<string>("appRoot");
+  const defaultLaunchConfig = launchConfigurations.find((config) => config.appRoot === appRoot);
+  return defaultLaunchConfig || {};
 }

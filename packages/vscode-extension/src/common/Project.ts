@@ -93,8 +93,8 @@ export interface ProjectEventListener<T> {
 
 export interface ProjectInterface {
   getProjectState(): Promise<ProjectState>;
-  restart(forceCleanBuild: boolean): Promise<void>;
   goHome(): Promise<void>;
+  restart(forceCleanBuild: boolean, forceMetroRestart?: boolean): Promise<void>;
   selectDevice(deviceInfo: DeviceInfo): Promise<void>;
   updatePreviewZoomLevel(zoom: ZoomLevelType): Promise<void>;
 

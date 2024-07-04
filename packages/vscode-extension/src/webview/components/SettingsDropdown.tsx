@@ -16,7 +16,7 @@ interface SettingsDropdownProps {
 }
 
 function SettingsDropdown({ project, isDeviceRunning, children, disabled }: SettingsDropdownProps) {
-  const { panelLocation, update } = useWorkspaceConfig();
+  const { panelLocation, update, launchConfigurations, appRoot } = useWorkspaceConfig();
   const { openModal } = useModal();
 
   return (
@@ -110,6 +110,64 @@ function SettingsDropdown({ project, isDeviceRunning, children, disabled }: Sett
                       New Window
                     </DropdownMenu.Item>
                   </>
+                )}
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Sub>
+
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger className="dropdown-menu-item">
+              <span className="codicon codicon-debug" />
+              Launch Configuration
+              <span className="codicon codicon-chevron-right right-slot" />
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.SubContent
+                className="dropdown-menu-content"
+                sideOffset={2}
+                alignOffset={-5}>
+                {!!launchConfigurations.length ? (
+                  launchConfigurations.map((launchConfig) => (
+                    <DropdownMenu.Item
+                      className="dropdown-menu-item"
+                      onSelect={async () => {
+                        update(
+                          "appRoot",
+                          launchConfigurations.find(
+                            (config) => config.appRoot === launchConfig.appRoot
+                          )!.appRoot!
+                        );
+
+                        await project.restart(true, true);
+                      }}>
+                      <span className="codicon codicon-debug-console" />
+                      {launchConfig.name}
+
+                      {appRoot === launchConfig.appRoot && (
+                        <span className="codicon codicon-check right-slot" />
+                      )}
+                    </DropdownMenu.Item>
+                  ))
+                ) : (
+                  <DropdownMenu.Item
+                    className="dropdown-menu-item"
+                    onSelect={() => {
+                      openModal(
+                        "No launch configuration found",
+                        <div>
+                          <p>
+                            No launch configuration found in your <code>launch.json</code> file.
+                          </p>
+                          <p>
+                            To create a launch configuration, open the debug panel and click on the
+                            gear icon.
+                          </p>
+                        </div>
+                      );
+                    }}>
+                    <span className="codicon codicon-debug-console" />
+                    No launch configuration found
+                  </DropdownMenu.Item>
                 )}
               </DropdownMenu.SubContent>
             </DropdownMenu.Portal>

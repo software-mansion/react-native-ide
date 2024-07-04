@@ -6,7 +6,7 @@ import { checkIosDependenciesInstalled } from "../dependency/DependencyChecker";
 import { installIOSDependencies } from "../dependency/DependencyInstaller";
 import { CancelToken } from "./BuildManager";
 import { BuildIOSProgressProcessor } from "./BuildIOSProgressProcessor";
-import { getLaunchConfiguration } from "../utilities/launchConfiguration";
+import { getDefaultLaunchConfiguration } from "../utilities/launchConfiguration";
 import {
   SimulatorDeviceSet,
   createSimulator,
@@ -119,7 +119,8 @@ function buildProject(
 
   return exec("xcodebuild", xcodebuildArgs, {
     env: {
-      ...getLaunchConfiguration().env,
+      ...process.env,
+      ...getDefaultLaunchConfiguration().env,
       RCT_NO_LAUNCH_PACKAGER: "true",
     },
     cwd: buildDir,
@@ -181,7 +182,7 @@ export async function buildIos(
     }`
   );
 
-  const buildOptions = getLaunchConfiguration();
+  const buildOptions = getDefaultLaunchConfiguration();
   const scheme = buildOptions.ios?.scheme || (await findXcodeScheme(xcodeProject));
   Logger.debug(`Xcode build will use "${scheme}" scheme`);
 

@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "name": "@acme/eslint-config",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "lint": "eslint --ext js,ts,tsx ."
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.0",
+    "eslint-config-universe": "^12.1.0",
+    "prettier": "^3.2.5"
+  },
+  "eslintConfig": {
+    "extends": "."
+  }
+}

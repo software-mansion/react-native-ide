@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "exclude": [
+    "./**/*.stories.ts",
+    "./**/*.stories.tsx",
+    "!./**/*.stories.ts",
+    "!./**/*.stories.tsx",
+    "!./.ondevice/**",
+    "!./.storybook/**"
+  ]
+}

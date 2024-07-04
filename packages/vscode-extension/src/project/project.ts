@@ -198,7 +198,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     this.reloadMetro();
   }
 
-  public async restart(forceCleanBuild: boolean) {
+  public async restart(forceCleanBuild: boolean, forceMetroRestart: boolean = false) {
     this.updateProjectState({ status: "starting", startupMessage: StartupMessage.Restarting });
     if (forceCleanBuild || this.nativeFilesChangedSinceLastBuild) {
       await this.start(true, true);
@@ -208,7 +208,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     }
 
     // if we have an active device session, we try reloading metro
-    if (this.deviceSession?.isActive) {
+    if (this.deviceSession?.isActive || forceMetroRestart) {
       this.reloadMetro();
       return;
     }
@@ -246,9 +246,15 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.updateProjectState({ status: "refreshing" });
           break;
         case "RNIDE_fastRefreshComplete":
-          if (this.projectState.status === "starting") return;
-          if (this.projectState.status === "incrementalBundleError") return;
-          if (this.projectState.status === "runtimeError") return;
+          if (this.projectState.status === "starting") {
+            return;
+          }
+          if (this.projectState.status === "incrementalBundleError") {
+            return;
+          }
+          if (this.projectState.status === "runtimeError") {
+            return;
+          }
           this.updateProjectState({ status: "running" });
           break;
       }
@@ -265,7 +271,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         case "RNIDE_paused":
           if (event.body?.reason === "exception") {
             // if we know that incrmental bundle error happened, we don't want to change the status
-            if (this.projectState.status === "incrementalBundleError") return;
+            if (this.projectState.status === "incrementalBundleError") {
+              return;
+            }
             this.updateProjectState({ status: "runtimeError" });
           } else {
             this.updateProjectState({ status: "debuggerPaused" });
@@ -279,6 +287,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     });
 
     Logger.debug(`Launching metro`);
+    this.metro.dispose();
+    // Wait 1s to ensure that the previous metro process is killed
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const waitForMetro = this.metro.start(
       forceCleanBuild,
       throttle((stageProgress: number) => {
