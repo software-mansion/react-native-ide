@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useEffect } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { store } from "expo-router/src/global-state/router-store";
 
@@ -6,7 +6,7 @@ function computeRouteIdentifier(pathname, params) {
   return pathname + JSON.stringify(params);
 }
 
-let navigationRoute = undefined;
+// let navigationRoute = undefined;
 function useRouterPluginMainHook({ onNavigationChange }) {
   const router = useRouter();
   const routeInfo = useSyncExternalStore(
@@ -14,6 +14,7 @@ function useRouterPluginMainHook({ onNavigationChange }) {
     store.routeInfoSnapshot,
     store.routeInfoSnapshot
   );
+  const [navigationRoute, setNavigationRoute] = useState(undefined);
 
   const pathname = routeInfo?.pathname;
   const params = routeInfo?.params;
@@ -27,6 +28,8 @@ function useRouterPluginMainHook({ onNavigationChange }) {
     });
   }, [pathname, params]);
 
+  console.log({ navigationRoute });
+
   function requestNavigationChange({ pathname, params }) {
     router.push(pathname, params);
   }
@@ -35,14 +38,14 @@ function useRouterPluginMainHook({ onNavigationChange }) {
     function onReady(_state) {
       if (navigationRoute && store.navigationRef?.isReady()) {
         requestNavigationChange(navigationRoute);
-        navigationRoute = undefined;
+        setNavigationRoute(undefined);
 
         store.navigationRef.removeListener("state", onReady);
       }
     }
     store.navigationRef?.addListener("state", onReady);
     return () => store.navigationRef?.removeListener("state", onReady);
-  }, [store.navigationRef?.current]);
+  }, [store.navigationRef?.current, navigationRoute, requestNavigationChange, setNavigationRoute]);
 
   return {
     getCurrentNavigationDescriptor: () => {
@@ -58,7 +61,8 @@ function useRouterPluginMainHook({ onNavigationChange }) {
       if (store.navigationRef?.isReady()) {
         requestNavigationChange(navigationDescriptor);
       } else {
-        navigationRoute = navigationDescriptor;
+        setNavigationRoute(navigationDescriptor);
+        // navigationRoute = navigationDescriptor;
       }
     },
   };
