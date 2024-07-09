@@ -8,6 +8,7 @@ export type DeviceSettings = {
     longitude: number;
     isDisabled: boolean;
   };
+  biometricEnrollment: boolean;
 };
 
 export type ProjectState = {
@@ -102,6 +103,7 @@ export interface ProjectInterface {
 
   getDeviceSettings(): Promise<DeviceSettings>;
   updateDeviceSettings(deviceSettings: DeviceSettings): Promise<void>;
+  sendBiometricAuthorization(match: boolean): Promise<void>;
 
   reportIssue(): Promise<void>;
 

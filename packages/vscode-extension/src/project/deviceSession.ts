@@ -189,4 +189,8 @@ export class DeviceSession implements Disposable {
   public async changeDeviceSettings(settings: DeviceSettings) {
     await this.device.changeSettings(settings);
   }
+
+  public async sendBiometricAuthorization(match: boolean) {
+    await this.device.sendBiometricAuthorization(match);
+  }
 }
