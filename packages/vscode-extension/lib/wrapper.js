@@ -17,23 +17,33 @@ export function registerNavigationPlugin(name, plugin) {
 
 let navigationHistory = new Map();
 
-function getCurrentScene() {
-  const SceneTracker = require("react-native/Libraries/Utilities/SceneTracker");
-  return SceneTracker.getActiveScene().name;
-}
+const NativeModules = {
+  get getInspectorDataForViewAtPoint() {
+    return require("react-native/Libraries/Inspector/getInspectorDataForViewAtPoint");
+  },
+  get SceneTracker() {
+    return require("react-native/Libraries/Utilities/SceneTracker");
+  },
+  get LoadingView() {
+    // In React Native 0.75 LoadingView was moved to DevLoadingView
+    // We need to use `try catch` pattern for both files as it has special semantics
+    // in bundler. If require isn't surrounded with try catch it will need to resolve
+    // at build time.
+    try {
+      return require("react-native/Libraries/Utilities/LoadingView");
+    } catch (e) {}
+    try {
+      return require("react-native/Libraries/Utilities/DevLoadingView");
+    } catch (e) {}
+    throw new Error("Couldn't locate LoadingView module");
+  },
+  get DevMenu() {
+    return require("react-native/Libraries/NativeModules/specs/NativeDevMenu").default;
+  },
+};
 
-function getLoadingView() {
-  // In React Native 0.75 LoadingView was moved to DevLoadingView
-  // We need to use `try catch` pattern for both files as it has special semantics
-  // in bundler. If require isn't surrounded with try catch it will need to resolve
-  // at build time.
-  try {
-    return require("react-native/Libraries/Utilities/LoadingView");
-  } catch (e) {}
-  try {
-    return require("react-native/Libraries/Utilities/DevLoadingView");
-  } catch (e) {}
-  throw new Error("Couldn't locate LoadingView module");
+function getCurrentScene() {
+  return NativeModules.SceneTracker.getActiveScene().name;
 }
 
 function emptyNavigationHook() {
@@ -153,7 +163,7 @@ export function PreviewAppWrapper({ children, initialProps, ..._rest }) {
     devtoolsAgent,
     "RNIDE_inspect",
     (payload) => {
-      const getInspectorDataForViewAtPoint = require("react-native/Libraries/Inspector/getInspectorDataForViewAtPoint");
+      const getInspectorDataForViewAtPoint = NativeModules.getInspectorDataForViewAtPoint;
       const { width, height } = Dimensions.get("screen");
 
       getInspectorDataForViewAtPoint(
@@ -222,15 +232,13 @@ export function PreviewAppWrapper({ children, initialProps, ..._rest }) {
   useAgentListener(devtoolsAgent, "RNIDE_iosDevMenu", (_payload) => {
     // this native module is present only on iOS and will crash if called
     // on Android
-    const DevMenu = require("react-native/Libraries/NativeModules/specs/NativeDevMenu").default;
-
-    DevMenu.show();
+    NativeModules.DevMenu.show();
   });
 
   useEffect(() => {
     if (devtoolsAgent) {
       LogBox.uninstall();
-      const LoadingView = getLoadingView();
+      const LoadingView = NativeModules.LoadingView;
       LoadingView.showMessage = (message) => {
         devtoolsAgent._bridge.send("RNIDE_fastRefreshStarted");
       };
