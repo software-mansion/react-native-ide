@@ -118,9 +118,11 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
   const wrapperDivRef = useRef<HTMLDivElement>(null);
   const [isPressing, setIsPressing] = useState(false);
   const previewRef = useRef<HTMLImageElement>(null);
+  const [isZoomControlHovered, setIsZoomControlHovered] = useState(false);
+  const [isZoomLevelSelectOpen, setIsZoomLevelSelectOpen] = useState(false);
   const [showPreviewRequested, setShowPreviewRequested] = useState(false);
 
-  const { projectState, project } = useProject();
+  const { projectState, project, windowState } = useProject();
 
   const projectStatus = projectState.status;
 
@@ -301,6 +303,9 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
     return sd.name === projectState?.selectedDevice?.name;
   });
 
+  const displayZoomControls =
+    windowState.hoveredEdge === "left" || isZoomLevelSelectOpen || isZoomControlHovered;
+
   const shouldPreventTouchInteraction =
     debugPaused ||
     debugException ||
@@ -436,14 +441,19 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
           </Resizable>
         )}
       </div>
+      {displayZoomControls && (
       <div className="button-group-left">
         <ZoomControls
           zoomLevel={zoomLevel}
           onZoomChanged={onZoomChanged}
+          onControlsOpenChange={setIsZoomLevelSelectOpen}
           device={device}
+          onHoverIn={() => setIsZoomControlHovered(true)}
+          onHoverOut={() => setIsZoomControlHovered(false)}
           wrapperDivRef={wrapperDivRef}
         />
       </div>
+      )}
     </>
   );
 }

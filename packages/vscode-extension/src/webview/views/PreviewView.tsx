@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { MouseEvent, useState, useEffect, useCallback } from "react";
 import { vscode } from "../utilities/vscode";
 import Preview from "../components/Preview";
 import IconButton from "../components/shared/IconButton";
@@ -20,7 +20,7 @@ import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { ZoomLevelType } from "../../common/Project";
 
 function PreviewView() {
-  const { projectState, project } = useProject();
+  const { projectState, project, windowState } = useProject();
 
   const [isInspecting, setIsInspecting] = useState(false);
   const zoomLevel = projectState.previewZoom ?? "Fit";
@@ -90,6 +90,27 @@ function PreviewView() {
     }
   };
 
+  function handleMouseMove(e: MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const edgeThreshold = 20; // pixels from the edge
+
+    let nearEdge: "left" | "right" | "top" | "bottom" | false = false;
+    nearEdge ||= e.clientX - rect.left < edgeThreshold && "left";
+    nearEdge ||= rect.right - e.clientX < edgeThreshold && "right";
+    nearEdge ||= e.clientY - rect.top < edgeThreshold && "top";
+    nearEdge ||= rect.bottom - e.clientY < edgeThreshold && "bottom";
+
+    const { hoveredEdge } = windowState;
+
+    if (nearEdge && nearEdge !== hoveredEdge) {
+      project.updateWindowState({ ...windowState, hoveredEdge: nearEdge });
+    }
+    if (nearEdge === false && hoveredEdge !== null) {
+      project.updateWindowState({ ...windowState, hoveredEdge: null });
+    }
+  }
+
   if (!finishedInitialLoad) {
     return (
       <div className="panel-view">
@@ -99,7 +120,7 @@ function PreviewView() {
   }
 
   return (
-    <div className="panel-view">
+    <div className="panel-view" onMouseMove={handleMouseMove}>
       <div className="button-group-top">
         <UrlBar project={project} disabled={devicesNotFound} />
 

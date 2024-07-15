@@ -1,11 +1,12 @@
 import { PropsWithChildren, useContext, createContext, useState, useEffect } from "react";
 import { makeProxy } from "../utilities/rpc";
-import { DeviceSettings, ProjectInterface, ProjectState } from "../../common/Project";
+import { DeviceSettings, ProjectInterface, ProjectState, WindowState } from "../../common/Project";
 
 const project = makeProxy<ProjectInterface>("Project");
 
 interface ProjectContextProps {
   projectState: ProjectState;
+  windowState: WindowState;
   deviceSettings: DeviceSettings;
   project: ProjectInterface;
 }
@@ -16,6 +17,9 @@ const ProjectContext = createContext<ProjectContextProps>({
     previewURL: undefined,
     selectedDevice: undefined,
     previewZoom: undefined,
+  },
+  windowState: {
+    hoveredEdge: null,
   },
   deviceSettings: {
     appearance: "dark",
@@ -45,6 +49,9 @@ export default function ProjectProvider({ children }: PropsWithChildren) {
       isDisabled: false,
     },
   });
+  const [windowState, setWindowState] = useState<WindowState>({
+    hoveredEdge: null,
+  });
 
   useEffect(() => {
     project.getProjectState().then(setProjectState);
@@ -53,14 +60,18 @@ export default function ProjectProvider({ children }: PropsWithChildren) {
     project.getDeviceSettings().then(setDeviceSettings);
     project.addListener("deviceSettingsChanged", setDeviceSettings);
 
+    project.getWindowState().then(setWindowState);
+    project.addListener("windowStateChanged", setWindowState);
+
     return () => {
       project.removeListener("projectStateChanged", setProjectState);
       project.removeListener("deviceSettingsChanged", setDeviceSettings);
+      project.addListener("windowStateChanged", setWindowState);
     };
   }, []);
 
   return (
-    <ProjectContext.Provider value={{ projectState, deviceSettings, project }}>
+    <ProjectContext.Provider value={{ projectState, deviceSettings, windowState, project }}>
       {children}
     </ProjectContext.Provider>
   );

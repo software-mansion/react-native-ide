@@ -12,11 +12,23 @@ export const DEVICE_DEFAULT_SCALE = 1 / 3;
 type ZoomControlsProps = {
   zoomLevel: ZoomLevelType;
   onZoomChanged: (zoom: ZoomLevelType) => void;
+  onControlsOpenChange?: (isOpen: boolean) => void;
   device?: DeviceProperties;
   wrapperDivRef?: RefObject<HTMLDivElement>;
+  onHoverIn?: () => void;
+  onHoverOut?: () => void;
 };
 
-const ZoomLevelSelect = ({ zoomLevel, onZoomChanged }: ZoomControlsProps) => {
+type ZoomLevelSelectProps = Pick<
+  ZoomControlsProps,
+  "zoomLevel" | "onZoomChanged" | "onControlsOpenChange"
+>;
+
+const ZoomLevelSelect = ({
+  zoomLevel,
+  onZoomChanged,
+  onControlsOpenChange,
+}: ZoomLevelSelectProps) => {
   const onValueChange = useCallback(
     (e: string) => {
       if (e == "Fit") {
@@ -30,6 +42,7 @@ const ZoomLevelSelect = ({ zoomLevel, onZoomChanged }: ZoomControlsProps) => {
 
   return (
     <Select.Root
+      onOpenChange={onControlsOpenChange}
       onValueChange={onValueChange}
       value={zoomLevel === "Fit" ? "Fit" : zoomLevel.toString()}>
       <Select.Trigger className="zoom-select-trigger" disabled={false}>
@@ -60,7 +73,15 @@ const ZoomLevelSelect = ({ zoomLevel, onZoomChanged }: ZoomControlsProps) => {
   );
 };
 
-function ZoomControls({ zoomLevel, onZoomChanged, device, wrapperDivRef }: ZoomControlsProps) {
+function ZoomControls({
+  zoomLevel,
+  onZoomChanged,
+  device,
+  onControlsOpenChange,
+  onHoverIn,
+  onHoverOut,
+  wrapperDivRef,
+}: ZoomControlsProps) {
   function handleZoom(shouldIncrease: boolean) {
     let currentZoomLevel;
     if (zoomLevel === "Fit") {
@@ -78,7 +99,7 @@ function ZoomControls({ zoomLevel, onZoomChanged, device, wrapperDivRef }: ZoomC
   }
 
   return (
-    <div className="zoom-controls">
+    <div className="zoom-controls" onMouseEnter={onHoverIn} onMouseLeave={onHoverOut}>
       <IconButton
         className="zoom-out-button"
         tooltip={{
@@ -88,7 +109,11 @@ function ZoomControls({ zoomLevel, onZoomChanged, device, wrapperDivRef }: ZoomC
         onClick={() => handleZoom(false)}>
         <span className="codicon codicon-zoom-out" />
       </IconButton>
-      <ZoomLevelSelect zoomLevel={zoomLevel} onZoomChanged={onZoomChanged} />
+      <ZoomLevelSelect
+        zoomLevel={zoomLevel}
+        onZoomChanged={onZoomChanged}
+        onControlsOpenChange={onControlsOpenChange}
+      />
       <IconButton
         className="zoom-in-button"
         tooltip={{

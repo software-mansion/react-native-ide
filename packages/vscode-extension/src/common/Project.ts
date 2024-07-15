@@ -10,6 +10,10 @@ export type DeviceSettings = {
   };
 };
 
+export type WindowState = {
+  hoveredEdge: "top" | "bottom" | "left" | "right" | null;
+};
+
 export type ProjectState = {
   status:
     | "starting"
@@ -85,6 +89,7 @@ export interface ProjectEventMap {
   log: { type: string };
   projectStateChanged: ProjectState;
   deviceSettingsChanged: DeviceSettings;
+  windowStateChanged: WindowState;
   navigationChanged: { displayName: string; id: string };
   needsNativeRebuild: void;
 }
@@ -103,6 +108,9 @@ export interface ProjectInterface {
   getCommandsCurrentKeyBinding(commandName: string): Promise<string | undefined>;
   getDeviceSettings(): Promise<DeviceSettings>;
   updateDeviceSettings(deviceSettings: DeviceSettings): Promise<void>;
+
+  getWindowState(): Promise<WindowState>;
+  updateWindowState(newState: Partial<WindowState>): Promise<void>;
 
   reportIssue(): Promise<void>;
 
