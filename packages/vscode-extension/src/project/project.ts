@@ -85,10 +85,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         switch (event) {
           case "RNIDE_appReady":
             Logger.debug("App ready");
-            if (this.reloadingMetro) {
-              this.reloadingMetro = false;
-              this.updateProjectState({ status: "running" });
-            }
             break;
           case "RNIDE_navigationChanged":
             this.eventEmitter.emit("navigationChanged", {
@@ -259,15 +255,13 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     this.fileSaveWatcherDisposable.dispose();
   }
 
-  private reloadingMetro = false;
-
-  public reloadMetro() {
-    this.reloadingMetro = true;
-    this.metro?.reload();
+  public async reloadMetro() {
+    await this.metro?.reload();
+    this.updateProjectState({ status: "running" });
   }
 
   public async goHome() {
-    this.reloadMetro();
+    return this.reloadMetro();
   }
 
   //#region async reload()
@@ -290,10 +284,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             switch (event) {
               case "RNIDE_appReady":
                 Logger.debug("App ready");
-                if (this.reloadingMetro) {
-                  this.reloadingMetro = false;
-                  this.updateProjectState({ status: "running" });
-                }
                 break;
               case "RNIDE_navigationChanged":
                 this.eventEmitter.emit("navigationChanged", {
@@ -392,8 +382,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           Logger.log("Device selected", deviceInfo.name);
           extensionContext.workspaceState.update(LAST_SELECTED_DEVICE_KEY, deviceInfo.id);
 
-          this.reloadingMetro = false;
-
           // TODO(jgonet): remove device session
           this.deviceSession?.dispose();
           this.deviceSession = undefined;
@@ -451,8 +439,8 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
         if (this.devtools.hasConnectedClient) {
-          this.reloadingMetro = true;
-          this.metro?.reload();
+          await this.metro?.reload();
+          this.updateProjectState({ status: "running" });
         }
         break;
     }
@@ -708,7 +696,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     Logger.log("Device selected", deviceInfo.name);
     extensionContext.workspaceState.update(LAST_SELECTED_DEVICE_KEY, deviceInfo.id);
 
-    this.reloadingMetro = false;
     const prevSession = this.deviceSession;
     this.deviceSession = undefined;
     prevSession?.dispose();

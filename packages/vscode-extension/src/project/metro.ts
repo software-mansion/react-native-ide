@@ -124,7 +124,7 @@ export class Metro implements Disposable {
     );
   }
 
-  public async startInternal(
+  private async startInternal(
     resetCache: boolean,
     progressListener: (newStageProgress: number) => void
   ) {
@@ -206,7 +206,17 @@ export class Metro implements Disposable {
   }
 
   public async reload() {
+    const appReady = new Promise<void>((resolve) => {
+      const handleReady = (event: string) => {
+        if (event === "RNIDE_appReady") {
+          this.devtools.removeListener(handleReady);
+          resolve();
+        }
+      };
+      this.devtools.addListener(handleReady);
+    });
     await fetch(`http://localhost:${this._port}/reload`);
+    await appReady;
   }
 
   public async getDebuggerURL(timeoutMs: number) {
