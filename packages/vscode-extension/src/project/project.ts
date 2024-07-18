@@ -7,6 +7,7 @@ import {
   window,
   env,
   Uri,
+  DebugSessionCustomEvent,
 } from "vscode";
 import { Metro, MetroDelegate } from "./metro";
 import { Devtools } from "./devtools";
@@ -217,7 +218,76 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           status: "starting",
           startupMessage: StartupMessage.Restarting,
         });
-        await this.start(true, true);
+        const start = async () => {
+          const handleAppEvents = (event: string, payload: any) => {
+            switch (event) {
+              case "RNIDE_appReady":
+                Logger.debug("App ready");
+                if (this.reloadingMetro) {
+                  this.reloadingMetro = false;
+                  this.updateProjectState({ status: "running" });
+                }
+                break;
+              case "RNIDE_navigationChanged":
+                this.eventEmitter.emit("navigationChanged", {
+                  displayName: payload.displayName,
+                  id: payload.id,
+                });
+                break;
+              case "RNIDE_fastRefreshStarted":
+                this.updateProjectState({ status: "refreshing" });
+                break;
+              case "RNIDE_fastRefreshComplete":
+                if (this.projectState.status === "starting") return;
+                if (this.projectState.status === "incrementalBundleError") return;
+                if (this.projectState.status === "runtimeError") return;
+                this.updateProjectState({ status: "running" });
+                break;
+            }
+          };
+          const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
+            switch (event.event) {
+              case "RNIDE_consoleLog":
+                this.eventEmitter.emit("log", event.body);
+                break;
+              case "RNIDE_paused":
+                if (event.body?.reason === "exception") {
+                  // if we know that incrmental bundle error happened, we don't want to change the status
+                  if (this.projectState.status === "incrementalBundleError") return;
+                  this.updateProjectState({ status: "runtimeError" });
+                } else {
+                  this.updateProjectState({ status: "debuggerPaused" });
+                }
+                commands.executeCommand("workbench.view.debug");
+                break;
+              case "RNIDE_continued":
+                this.updateProjectState({ status: "running" });
+                break;
+            }
+          };
+          const updateProgress = throttle((stageProgress: number) => {
+            if (StartupMessage.WaitingForAppToLoad !== this.projectState.startupMessage) {
+              return;
+            }
+            this.updateProjectState({ stageProgress });
+          }, 100);
+
+          this.devtools.dispose();
+          this.metro.dispose();
+          this.devtools = new Devtools();
+          this.metro = new Metro(this.devtools, this);
+          this.devtools.addListener(handleAppEvents);
+          Logger.debug("Launching devtools");
+          this.devtools.start();
+
+          this.debugSessionListener?.dispose();
+          this.debugSessionListener =
+            debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
+
+          Logger.debug("Launching metro");
+          this.metro.start(true, updateProgress);
+        };
+        await start();
         await this.selectDevice(deviceInfo, true);
         break;
     }
@@ -236,8 +306,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     });
 
     if (forceCleanBuild) {
-      await this.start(true, true);
-      await this.selectDevice(deviceInfo, true);
+      this.reload("rebuild");
       return;
     } else if (this.detectedFingerprintChange) {
       await this.selectDevice(deviceInfo, false);
