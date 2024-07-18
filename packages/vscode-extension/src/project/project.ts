@@ -376,7 +376,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           }
 
           if (!device) {
-            return;
+            return false;
           }
 
           Logger.log("Device selected", deviceInfo.name);
@@ -435,18 +435,18 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         };
         await start();
         await selectDevice(deviceInfo);
-        break;
+        return true;
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
         if (this.devtools.hasConnectedClient) {
           await this.metro?.reload();
           this.updateProjectState({ status: "running" });
+          return true;
         }
-        break;
+        return false;
+      default:
+        throw new Error("incorrect type passed");
     }
-
-    // TODO(jgonet): remove last resort return
-    return false;
   }
 
   public async restart(forceCleanBuild: boolean, onlyReloadJSWhenPossible: boolean = true) {
