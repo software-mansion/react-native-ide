@@ -7,6 +7,7 @@ import { Logger } from "../Logger";
 import { extensionContext } from "../utilities/extensionContext";
 import { WorkspaceConfigController } from "./WorkspaceConfigController";
 import { getTelemetryReporter } from "../utilities/telemetry";
+import { Notifier } from "../project/notifier";
 
 type CallArgs = {
   callId: string;
@@ -30,6 +31,7 @@ export class WebviewController implements Disposable {
   private readonly dependencyChecker: DependencyChecker;
   private readonly dependencyInstaller: DependencyInstaller;
   private readonly deviceManager: DeviceManager;
+  public readonly notifier: Notifier;
   public readonly project: Project;
   public readonly workspaceConfig: WorkspaceConfigController;
   private disposables: Disposable[] = [];
@@ -44,7 +46,7 @@ export class WebviewController implements Disposable {
 
   private followEnabled = false;
 
-  private readonly callableObjects: Map<string, object>;
+  private readonly callableObjects: Map<string, unknown>;
 
   constructor(private webview: Webview) {
     // Set an event listener to listen for messages passed from the webview context
@@ -60,7 +62,8 @@ export class WebviewController implements Disposable {
     this.setupEditorListeners();
 
     this.deviceManager = new DeviceManager();
-    this.project = new Project(this.deviceManager);
+    this.notifier = new Notifier();
+    this.project = new Project(this.deviceManager, this.notifier);
 
     this.workspaceConfig = new WorkspaceConfigController();
 
@@ -72,10 +75,11 @@ export class WebviewController implements Disposable {
       this.workspaceConfig
     );
 
-    this.callableObjects = new Map([
-      ["DeviceManager", this.deviceManager as object],
-      ["Project", this.project as object],
-      ["WorkspaceConfig", this.workspaceConfig as object],
+    this.callableObjects = new Map<string, unknown>([
+      ["DeviceManager", this.deviceManager],
+      ["DeviceManager", this.deviceManager],
+      ["Project", this.project],
+      ["WorkspaceConfig", this.workspaceConfig],
     ]);
 
     commands.executeCommand("setContext", "RNIDE.panelIsOpen", true);

@@ -38,6 +38,7 @@ import path from "path";
 import { homedir } from "node:os";
 import fs from "fs";
 import JSON5 from "json5";
+import { Notifier } from "./notifier";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -77,7 +78,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     },
   };
 
-  constructor(private readonly deviceManager: DeviceManager) {
+  constructor(private readonly deviceManager: DeviceManager, private readonly notifier: Notifier) {
     Project.currentProject = this;
     this.metro = new Metro(this.devtools, this);
     this.start(false, false);
