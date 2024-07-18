@@ -80,9 +80,73 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   };
 
   constructor(private readonly deviceManager: DeviceManager, private readonly notifier: Notifier) {
+    const start = async () => {
+      const handleAppEvents = (event: string, payload: any) => {
+        switch (event) {
+          case "RNIDE_appReady":
+            Logger.debug("App ready");
+            if (this.reloadingMetro) {
+              this.reloadingMetro = false;
+              this.updateProjectState({ status: "running" });
+            }
+            break;
+          case "RNIDE_navigationChanged":
+            this.eventEmitter.emit("navigationChanged", {
+              displayName: payload.displayName,
+              id: payload.id,
+            });
+            break;
+          case "RNIDE_fastRefreshStarted":
+            this.updateProjectState({ status: "refreshing" });
+            break;
+          case "RNIDE_fastRefreshComplete":
+            if (this.projectState.status === "starting") return;
+            if (this.projectState.status === "incrementalBundleError") return;
+            if (this.projectState.status === "runtimeError") return;
+            this.updateProjectState({ status: "running" });
+            break;
+        }
+      };
+      const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
+        switch (event.event) {
+          case "RNIDE_consoleLog":
+            this.eventEmitter.emit("log", event.body);
+            break;
+          case "RNIDE_paused":
+            if (event.body?.reason === "exception") {
+              // if we know that incrmental bundle error happened, we don't want to change the status
+              if (this.projectState.status === "incrementalBundleError") return;
+              this.updateProjectState({ status: "runtimeError" });
+            } else {
+              this.updateProjectState({ status: "debuggerPaused" });
+            }
+            commands.executeCommand("workbench.view.debug");
+            break;
+          case "RNIDE_continued":
+            this.updateProjectState({ status: "running" });
+            break;
+        }
+      };
+      const updateProgress = throttle((stageProgress: number) => {
+        if (StartupMessage.WaitingForAppToLoad !== this.projectState.startupMessage) {
+          return;
+        }
+        this.updateProjectState({ stageProgress });
+      }, 100);
+
+      this.devtools.addListener(handleAppEvents);
+      Logger.debug("Launching devtools");
+      this.devtools.start();
+
+      this.debugSessionListener?.dispose();
+      this.debugSessionListener = debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
+
+      Logger.debug("Launching metro");
+      this.metro.start(false, updateProgress);
+    };
     Project.currentProject = this;
     this.metro = new Metro(this.devtools, this);
-    this.start(false, false);
+    start();
     this.trySelectingInitialDevice();
     this.deviceManager.addListener("deviceRemoved", this.removeDeviceListener);
     this.detectedFingerprintChange = false;
@@ -429,75 +493,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         await this.selectDevice(this.projectState.selectedDevice!, false);
       }
     }
-  }
-
-  private async start(restart: boolean, forceCleanBuild: boolean) {
-    if (restart) {
-      const oldDevtools = this.devtools;
-      const oldMetro = this.metro;
-      this.devtools = new Devtools();
-      this.metro = new Metro(this.devtools, this);
-      oldDevtools.dispose();
-      oldMetro.dispose();
-    }
-    this.devtools.addListener((event, payload) => {
-      switch (event) {
-        case "RNIDE_appReady":
-          Logger.debug("App ready");
-          if (this.reloadingMetro) {
-            this.reloadingMetro = false;
-            this.updateProjectState({ status: "running" });
-          }
-          break;
-        case "RNIDE_navigationChanged":
-          this.eventEmitter.emit("navigationChanged", {
-            displayName: payload.displayName,
-            id: payload.id,
-          });
-          break;
-        case "RNIDE_fastRefreshStarted":
-          this.updateProjectState({ status: "refreshing" });
-          break;
-        case "RNIDE_fastRefreshComplete":
-          if (this.projectState.status === "starting") return;
-          if (this.projectState.status === "incrementalBundleError") return;
-          if (this.projectState.status === "runtimeError") return;
-          this.updateProjectState({ status: "running" });
-          break;
-      }
-    });
-    Logger.debug(`Launching devtools`);
-    const waitForDevtools = this.devtools.start();
-
-    this.debugSessionListener?.dispose();
-    this.debugSessionListener = debug.onDidReceiveDebugSessionCustomEvent((event) => {
-      switch (event.event) {
-        case "RNIDE_consoleLog":
-          this.eventEmitter.emit("log", event.body);
-          break;
-        case "RNIDE_paused":
-          if (event.body?.reason === "exception") {
-            // if we know that incrmental bundle error happened, we don't want to change the status
-            if (this.projectState.status === "incrementalBundleError") return;
-            this.updateProjectState({ status: "runtimeError" });
-          } else {
-            this.updateProjectState({ status: "debuggerPaused" });
-          }
-          commands.executeCommand("workbench.view.debug");
-          break;
-        case "RNIDE_continued":
-          this.updateProjectState({ status: "running" });
-          break;
-      }
-    });
-
-    Logger.debug(`Launching metro`);
-    const waitForMetro = this.metro.start(
-      forceCleanBuild,
-      throttle((stageProgress: number) => {
-        this.reportStageProgress(stageProgress, StartupMessage.WaitingForAppToLoad);
-      }, 100)
-    );
   }
 
   async resetAppPermissions(permissionType: AppPermissionType) {
