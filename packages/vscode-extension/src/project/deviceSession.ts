@@ -14,6 +14,10 @@ const WAIT_FOR_DEBUGGER_TIMEOUT = 15000; // 15 seconds
 type ProgressCallback = (startupMessage: string) => void;
 type PreviewReadyCallback = (previewURL: string) => void;
 
+type StartOptions = {
+  onReady: PreviewReadyCallback;
+  onProgress: ProgressCallback;
+};
 export class DeviceSession implements Disposable {
   private inspectCallID = 7621;
   private debugSession: DebugSession | undefined;
@@ -65,24 +69,21 @@ export class DeviceSession implements Disposable {
     return this.launch(progressCallback);
   }
 
-  async start(
-    deviceSettings: DeviceSettings,
-    previewReadyCallback: PreviewReadyCallback,
-    progressCallback: ProgressCallback
-  ) {
-    progressCallback(StartupMessage.BootingDevice);
+  async start(deviceSettings: DeviceSettings, options: StartOptions) {
+    const { onReady, onProgress } = options;
+    onProgress(StartupMessage.BootingDevice);
     await this.device.bootDevice();
     await this.device.changeSettings(deviceSettings);
-    progressCallback(StartupMessage.Building);
+    onProgress(StartupMessage.Building);
     this.buildResult = await this.disposableBuild.build;
-    progressCallback(StartupMessage.Installing);
+    onProgress(StartupMessage.Installing);
     await this.device.installApp(this.buildResult, false);
 
     this.device.startPreview().then(() => {
-      previewReadyCallback(this.device.previewURL!);
+      onReady(this.device.previewURL!);
     });
 
-    await this.launch(progressCallback);
+    await this.launch(onProgress);
   }
 
   public async startDebugger() {

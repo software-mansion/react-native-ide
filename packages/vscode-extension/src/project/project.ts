@@ -287,8 +287,100 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           Logger.debug("Launching metro");
           this.metro.start(true, updateProgress);
         };
+
+        const selectDevice = async (deviceInfo: DeviceInfo) => {
+          const updateProgress = throttle((stageProgress: number) => {
+            if (StartupMessage.Building !== this.projectState.startupMessage) {
+              return;
+            }
+            this.updateProjectState({ stageProgress });
+          }, 100);
+
+          const deviceAlreadyUserNotification = (e: unknown) => {
+            if (e instanceof DeviceAlreadyUsedError) {
+              window.showErrorMessage(
+                "This device is already used by other instance of React Native IDE.\nPlease select another device",
+                "Dismiss"
+              );
+            } else {
+              Logger.error(
+                `Couldn't acquire the device ${deviceInfo.platform} – ${deviceInfo.id}`,
+                e
+              );
+            }
+          };
+
+          // TODO(jgonet): make this cleaner
+          let device: IosSimulatorDevice | AndroidEmulatorDevice | undefined;
+          try {
+            device = await this.deviceManager.acquireDevice(deviceInfo);
+          } catch (e) {
+            deviceAlreadyUserNotification(e);
+          }
+
+          if (!device) {
+            return;
+          }
+
+          Logger.log("Device selected", deviceInfo.name);
+          extensionContext.workspaceState.update(LAST_SELECTED_DEVICE_KEY, deviceInfo.id);
+
+          this.reloadingMetro = false;
+
+          // TODO(jgonet): remove device session
+          this.deviceSession?.dispose();
+          this.deviceSession = undefined;
+
+          this.updateProjectState({
+            selectedDevice: deviceInfo,
+            status: "starting",
+            startupMessage: StartupMessage.InitializingDevice,
+            previewURL: undefined,
+          });
+
+          let newDeviceSession;
+          try {
+            Logger.debug("Selected device is ready");
+            this.updateProjectStateForDevice(deviceInfo, {
+              startupMessage: StartupMessage.StartingPackager,
+            });
+            // wait for metro/devtools to start before we continue
+            await Promise.all([this.metro.ready(), this.devtools.ready()]);
+            const build = this.buildManager.startBuild(deviceInfo, true, updateProgress);
+
+            // reset fingerprint change flag when build finishes successfully
+            if (this.detectedFingerprintChange) {
+              build.build.then(() => {
+                this.detectedFingerprintChange = false;
+              });
+            }
+
+            Logger.debug("Metro & devtools ready");
+            newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
+            this.deviceSession = newDeviceSession;
+
+            await newDeviceSession.start(this.deviceSettings, {
+              onReady: (previewURL) => {
+                this.updateProjectStateForDevice(deviceInfo, { previewURL });
+              },
+              onProgress: (startupMessage) =>
+                this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
+            });
+            Logger.debug("Device session started");
+
+            this.updateProjectStateForDevice(deviceInfo, { status: "running" });
+          } catch (e) {
+            Logger.error("Couldn't start device session", e);
+
+            const isSelected = this.projectState.selectedDevice === deviceInfo;
+            const isNewSession = this.deviceSession === newDeviceSession;
+            if (isSelected && isNewSession) {
+              this.updateProjectState({ status: "buildError" });
+            }
+          }
+        };
         await start();
-        await this.selectDevice(deviceInfo, true);
+        await selectDevice(deviceInfo);
         break;
     }
   }
