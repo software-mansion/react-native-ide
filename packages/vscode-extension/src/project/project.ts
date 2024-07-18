@@ -204,6 +204,25 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     this.reloadMetro();
   }
 
+  //#region async reload()
+  public async reload(type: "rebuild" | "hotReload" | "reloadJs" | "restartProcess" | "reinstall") {
+    switch (type) {
+      case "rebuild":
+        // we save device info and device session at the start such that we can
+        // check if they weren't updated in the meantime while we await for restart
+        // procedures
+        const deviceInfo = this.projectState.selectedDevice!;
+
+        this.updateProjectStateForDevice(deviceInfo, {
+          status: "starting",
+          startupMessage: StartupMessage.Restarting,
+        });
+        await this.start(true, true);
+        await this.selectDevice(deviceInfo, true);
+        break;
+    }
+  }
+
   public async restart(forceCleanBuild: boolean, onlyReloadJSWhenPossible: boolean = true) {
     // we save device info and device session at the start such that we can
     // check if they weren't updated in the meantime while we await for restart
