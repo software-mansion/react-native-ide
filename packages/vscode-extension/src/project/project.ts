@@ -337,38 +337,36 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             startupMessage: StartupMessage.InitializingDevice,
             previewURL: undefined,
           });
+          Logger.debug("Selected device is ready");
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.StartingPackager,
+          });
+          // wait for metro/devtools to start before we continue
+          await Promise.all([this.metro.ready(), this.devtools.ready()]);
+          Logger.debug("Metro & devtools ready");
 
           let newDeviceSession;
           try {
-            Logger.debug("Selected device is ready");
-            this.updateProjectStateForDevice(deviceInfo, {
-              startupMessage: StartupMessage.StartingPackager,
-            });
-            // wait for metro/devtools to start before we continue
-            await Promise.all([this.metro.ready(), this.devtools.ready()]);
-            const build = this.buildManager.startBuild(deviceInfo, true, updateProgress);
-
-            // reset fingerprint change flag when build finishes successfully
-            if (this.detectedFingerprintChange) {
-              build.build.then(() => {
+            const build = this.buildManager.startBuild(deviceInfo, {
+              forceCleanBuild: true,
+              onProgress: updateProgress,
+              onSuccess: () => {
+                // reset fingerprint change flag when build finishes successfully
                 this.detectedFingerprintChange = false;
-              });
-            }
+              },
+            });
 
-            Logger.debug("Metro & devtools ready");
             newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
             this.deviceSession = newDeviceSession;
 
             await newDeviceSession.start(this.deviceSettings, {
-              onReady: (previewURL) => {
+              onPreviewReady: (previewURL) => {
                 this.updateProjectStateForDevice(deviceInfo, { previewURL });
               },
               onProgress: (startupMessage) =>
                 this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
             });
             Logger.debug("Device session started");
-
-            this.updateProjectStateForDevice(deviceInfo, { status: "running" });
           } catch (e) {
             Logger.error("Couldn't start device session", e);
 
@@ -378,6 +376,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
               this.updateProjectState({ status: "buildError" });
             }
           }
+          this.updateProjectStateForDevice(deviceInfo, { status: "running" });
         };
         await start();
         await selectDevice(deviceInfo);
@@ -721,13 +720,12 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       });
       // wait for metro/devtools to start before we continue
       await Promise.all([this.metro.ready(), this.devtools.ready()]);
-      const build = this.buildManager.startBuild(
-        deviceInfo,
+      const build = this.buildManager.startBuild(deviceInfo, {
         forceCleanBuild,
-        throttle((stageProgress: number) => {
+        onProgress: throttle((stageProgress: number) => {
           this.reportStageProgress(stageProgress, StartupMessage.Building);
-        }, 100)
-      );
+        }, 100),
+      });
 
       // reset fingerpring change flag when build finishes successfully
       if (this.detectedFingerprintChange) {
@@ -740,13 +738,13 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
       this.deviceSession = newDeviceSession;
 
-      await newDeviceSession.start(
-        this.deviceSettings,
-        (previewURL) => {
+      await newDeviceSession.start(this.deviceSettings, {
+        onPreviewReady: (previewURL) => {
           this.updateProjectStateForDevice(deviceInfo, { previewURL });
         },
-        (startupMessage) => this.updateProjectStateForDevice(deviceInfo, { startupMessage })
-      );
+        onProgress: (startupMessage) =>
+          this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
+      });
       Logger.debug("Device session started");
 
       this.updateProjectStateForDevice(deviceInfo, {

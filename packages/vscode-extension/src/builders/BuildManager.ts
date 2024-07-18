@@ -88,6 +88,11 @@ class DisposableBuildImpl<R> implements DisposableBuild<R> {
   }
 }
 
+type StartBuildOptions = {
+  forceCleanBuild: boolean;
+  onProgress: (newProgress: number) => void;
+  onSuccess?: () => void;
+};
 export class BuildManager {
   private buildOutputChannel: OutputChannel | undefined;
 
@@ -95,24 +100,20 @@ export class BuildManager {
     this.buildOutputChannel?.show();
   }
 
-  public startBuild(
-    deviceInfo: DeviceInfo,
-    forceCleanBuild: boolean,
-    progressListener: (newProgress: number) => void
-  ) {
-    if (deviceInfo.platform === Platform.Android) {
-      const cancelToken = new CancelToken();
-      return new DisposableBuildImpl(
-        this.startAndroidBuild(forceCleanBuild, cancelToken, progressListener),
-        cancelToken
-      );
-    } else {
-      const cancelToken = new CancelToken();
-      return new DisposableBuildImpl(
-        this.startIOSBuild(deviceInfo, forceCleanBuild, cancelToken, progressListener),
-        cancelToken
-      );
-    }
+  public startBuild(deviceInfo: DeviceInfo, options: StartBuildOptions) {
+    const { forceCleanBuild, onProgress, onSuccess } = options;
+    const cancelToken = new CancelToken();
+    const build =
+      deviceInfo.platform === Platform.Android
+        ? this.startAndroidBuild(forceCleanBuild, cancelToken, onProgress)
+        : this.startIOSBuild(deviceInfo, forceCleanBuild, cancelToken, onProgress);
+
+    const disposableBuild = new DisposableBuildImpl<BuildResult>(build, cancelToken);
+    disposableBuild.build.then((buildResult) => {
+      onSuccess?.();
+      return buildResult;
+    });
+    return disposableBuild;
   }
 
   private async loadAndroidCachedBuild(newFingerprint: string) {

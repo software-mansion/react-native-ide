@@ -15,7 +15,7 @@ type ProgressCallback = (startupMessage: string) => void;
 type PreviewReadyCallback = (previewURL: string) => void;
 
 type StartOptions = {
-  onReady: PreviewReadyCallback;
+  onPreviewReady: PreviewReadyCallback;
   onProgress: ProgressCallback;
 };
 export class DeviceSession implements Disposable {
@@ -70,7 +70,8 @@ export class DeviceSession implements Disposable {
   }
 
   async start(deviceSettings: DeviceSettings, options: StartOptions) {
-    const { onReady, onProgress } = options;
+    const { onPreviewReady, onProgress } = options;
+    console.warn({ options });
     onProgress(StartupMessage.BootingDevice);
     await this.device.bootDevice();
     await this.device.changeSettings(deviceSettings);
@@ -80,7 +81,7 @@ export class DeviceSession implements Disposable {
     await this.device.installApp(this.buildResult, false);
 
     this.device.startPreview().then(() => {
-      onReady(this.device.previewURL!);
+      onPreviewReady(this.device.previewURL!);
     });
 
     await this.launch(onProgress);
