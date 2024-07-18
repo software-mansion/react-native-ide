@@ -153,6 +153,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
     this.trackNativeChanges();
   }
+
   async reportIssue() {
     env.openExternal(
       Uri.parse("https://github.com/software-mansion/react-native-ide/issues/new/choose")
@@ -270,7 +271,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   }
 
   //#region async reload()
-  public async reload(type: "rebuild" | "hotReload" | "reloadJs" | "restartProcess" | "reinstall") {
+  public async reload(
+    type: "rebuild" | "reinstall" | "restartProcess" | "reloadJs" | "hotReload"
+  ): Promise<boolean> {
     switch (type) {
       case "rebuild":
         // we save device info and device session at the start such that we can
@@ -445,7 +448,17 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         await start();
         await selectDevice(deviceInfo);
         break;
+      case "hotReload":
+        // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
+        if (this.devtools.hasConnectedClient) {
+          this.reloadingMetro = true;
+          this.metro?.reload();
+        }
+        break;
     }
+
+    // TODO(jgonet): remove last resort return
+    return false;
   }
 
   public async restart(forceCleanBuild: boolean, onlyReloadJSWhenPossible: boolean = true) {
@@ -470,11 +483,12 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
     // if we have an active devtools session, we try hot reloading
     if (onlyReloadJSWhenPossible && this.devtools.hasConnectedClient) {
-      this.reloadMetro();
+      this.reload("hotReload");
       return;
     }
 
     // otherwise we try to restart the device session
+    // TODO(jgonet): Next up – move this to reload()
     try {
       // we first check if the device session hasn't changed in the meantime
       if (deviceSession === this.deviceSession) {
