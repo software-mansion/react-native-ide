@@ -8,6 +8,7 @@ import { AppPermissionType, DeviceSettings, StartupMessage } from "../common/Pro
 import { Platform } from "../common/DeviceManager";
 import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
+import { Notifier } from "./notifier";
 
 const WAIT_FOR_DEBUGGER_TIMEOUT = 15000; // 15 seconds
 
@@ -25,7 +26,7 @@ export class DeviceSession implements Disposable {
 
   constructor(
     private readonly device: DeviceBase,
-    private readonly devtools: Devtools,
+    private readonly notifier: Notifier,
     private readonly metro: Metro,
     private readonly disposableBuild: DisposableBuild<BuildResult>
   ) {}
@@ -42,19 +43,13 @@ export class DeviceSession implements Disposable {
     }
     const shouldWaitForAppLaunch = getLaunchConfiguration().preview?.waitForAppLaunch !== false;
     const waitForAppReady = shouldWaitForAppLaunch
-      ? new Promise<void>((res) => {
-          const listener = (event: string, payload: any) => {
-            if (event === "RNIDE_appReady") {
-              this.devtools?.removeListener(listener);
-              res();
-            }
-          };
-          this.devtools?.addListener(listener);
+      ? new Promise<void>((resolve) => {
+          this.notifier.listen("RNIDE_appReady", resolve, { once: true });
         })
       : Promise.resolve();
 
     progressCallback(StartupMessage.Launching);
-    await this.device.launchApp(this.buildResult, this.metro.port, this.devtools.port);
+    await this.device.launchApp(this.buildResult, this.metro.port, this.notifier.devtoolsPort);
 
     Logger.debug("Will wait for app ready and for preview");
     progressCallback(StartupMessage.WaitingForAppToLoad);
@@ -152,18 +147,18 @@ export class DeviceSession implements Disposable {
     callback: (inspectData: any) => void
   ) {
     const id = this.inspectCallID++;
-    const listener = (event: string, payload: any) => {
-      if (event === "RNIDE_inspectData" && payload.id === id) {
-        this.devtools?.removeListener(listener);
+
+    const removeListener = this.notifier.listen("RNIDE_inspectData", (payload) => {
+      if (payload.id === id) {
         callback(payload);
+        removeListener();
       }
-    };
-    this.devtools?.addListener(listener);
-    this.devtools.send("RNIDE_inspect", { x: xRatio, y: yRatio, id, requestStack });
+    });
+    this.notifier.sendToApp("RNIDE_inspect", { x: xRatio, y: yRatio, id, requestStack });
   }
 
   public openNavigation(id: string) {
-    this.devtools.send("RNIDE_openNavigation", { id });
+    this.notifier.sendToApp("RNIDE_openNavigation", { id });
   }
 
   public async openDevMenu() {
@@ -174,18 +169,18 @@ export class DeviceSession implements Disposable {
     // We could probably unify it in the future by running metro in interactive
     // mode and sending keys to stdin.
     if (this.device.platform === Platform.IOS) {
-      this.devtools.send("RNIDE_iosDevMenu");
+      this.notifier.sendToApp("RNIDE_iosDevMenu");
     } else {
       await (this.device as AndroidEmulatorDevice).openDevMenu();
     }
   }
 
   public startPreview(previewId: string) {
-    this.devtools.send("RNIDE_openPreview", { previewId });
+    this.notifier.sendToApp("RNIDE_openPreview", { previewId });
   }
 
   public onActiveFileChange(filename: string, followEnabled: boolean) {
-    this.devtools.send("RNIDE_editorFileChanged", { filename, followEnabled });
+    this.notifier.sendToApp("RNIDE_editorFileChanged", { filename, followEnabled });
   }
 
   public async changeDeviceSettings(settings: DeviceSettings) {

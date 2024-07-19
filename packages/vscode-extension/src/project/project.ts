@@ -10,7 +10,6 @@ import {
   DebugSessionCustomEvent,
 } from "vscode";
 import { Metro, MetroDelegate } from "./metro";
-import { Devtools } from "./devtools";
 import { DeviceSession } from "./deviceSession";
 import { Logger } from "../Logger";
 import { BuildManager, didFingerprintChange } from "../builders/BuildManager";
@@ -49,8 +48,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public static currentProject: Project | undefined;
 
   private metro: Metro;
-  private devtools = new Devtools();
-  private debugSessionListener: Disposable | undefined;
+  private debugSessionListener!: Disposable;
   private buildManager = new BuildManager();
   private eventEmitter = new EventEmitter();
 
@@ -79,30 +77,27 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     },
   };
 
+  async initNotifier() {
+    this.notifier.listen("RNIDE_appReady", () => {
+      Logger.debug("App ready");
+    });
+    this.notifier.listen("RNIDE_navigationChanged", ({ id, displayName }) => {
+      this.notifier.send("navigationChanged", { id, displayName });
+    });
+    this.notifier.listen("RNIDE_fastRefreshStarted", () => {
+      this.updateProjectState({ status: "refreshing" });
+    });
+    this.notifier.listen("RNIDE_fastRefreshComplete", () => {
+      if (this.projectState.status === "starting") return;
+      if (this.projectState.status === "incrementalBundleError") return;
+      if (this.projectState.status === "runtimeError") return;
+      this.updateProjectState({ status: "running" });
+    });
+    await this.notifier.ready();
+  }
+
   constructor(private readonly deviceManager: DeviceManager, private readonly notifier: Notifier) {
     const start = async () => {
-      const handleAppEvents = (event: string, payload: any) => {
-        switch (event) {
-          case "RNIDE_appReady":
-            Logger.debug("App ready");
-            break;
-          case "RNIDE_navigationChanged":
-            this.eventEmitter.emit("navigationChanged", {
-              displayName: payload.displayName,
-              id: payload.id,
-            });
-            break;
-          case "RNIDE_fastRefreshStarted":
-            this.updateProjectState({ status: "refreshing" });
-            break;
-          case "RNIDE_fastRefreshComplete":
-            if (this.projectState.status === "starting") return;
-            if (this.projectState.status === "incrementalBundleError") return;
-            if (this.projectState.status === "runtimeError") return;
-            this.updateProjectState({ status: "running" });
-            break;
-        }
-      };
       const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
         switch (event.event) {
           case "RNIDE_consoleLog":
@@ -130,18 +125,17 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         this.updateProjectState({ stageProgress });
       }, 100);
 
-      this.devtools.addListener(handleAppEvents);
-      Logger.debug("Launching devtools");
-      this.devtools.start();
+      await this.initNotifier();
 
-      this.debugSessionListener?.dispose();
       this.debugSessionListener = debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
 
       Logger.debug("Launching metro");
       this.metro.start(false, updateProgress);
+      await this.metro.ready();
     };
     Project.currentProject = this;
-    this.metro = new Metro(this.devtools, this);
+    this.metro = new Metro(this.notifier, this);
+    // TODO(jgonet): simultaneous metro and build
     start();
     this.trySelectingInitialDevice();
     this.deviceManager.addListener("deviceRemoved", this.removeDeviceListener);
@@ -247,9 +241,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
   public dispose() {
     this.deviceSession?.dispose();
-    this.metro?.dispose();
-    this.devtools?.dispose();
-    this.debugSessionListener?.dispose();
+    this.metro.dispose();
+    this.notifier.dispose();
+    this.debugSessionListener.dispose();
     this.deviceManager.removeListener("deviceRemoved", this.removeDeviceListener);
     this.workspaceWatcher.dispose();
     this.fileSaveWatcherDisposable.dispose();
@@ -280,28 +274,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           startupMessage: StartupMessage.Restarting,
         });
         const start = async () => {
-          const handleAppEvents = (event: string, payload: any) => {
-            switch (event) {
-              case "RNIDE_appReady":
-                Logger.debug("App ready");
-                break;
-              case "RNIDE_navigationChanged":
-                this.eventEmitter.emit("navigationChanged", {
-                  displayName: payload.displayName,
-                  id: payload.id,
-                });
-                break;
-              case "RNIDE_fastRefreshStarted":
-                this.updateProjectState({ status: "refreshing" });
-                break;
-              case "RNIDE_fastRefreshComplete":
-                if (this.projectState.status === "starting") return;
-                if (this.projectState.status === "incrementalBundleError") return;
-                if (this.projectState.status === "runtimeError") return;
-                this.updateProjectState({ status: "running" });
-                break;
-            }
-          };
           const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
             switch (event.event) {
               case "RNIDE_consoleLog":
@@ -329,15 +301,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             this.updateProjectState({ stageProgress });
           }, 100);
 
-          this.devtools.dispose();
           this.metro.dispose();
-          this.devtools = new Devtools();
-          this.metro = new Metro(this.devtools, this);
-          this.devtools.addListener(handleAppEvents);
-          Logger.debug("Launching devtools");
-          this.devtools.start();
-
-          this.debugSessionListener?.dispose();
+          this.metro = new Metro(this.notifier, this);
+          this.debugSessionListener.dispose();
           this.debugSessionListener =
             debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
 
@@ -397,7 +363,8 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             startupMessage: StartupMessage.StartingPackager,
           });
           // wait for metro/devtools to start before we continue
-          await Promise.all([this.metro.ready(), this.devtools.ready()]);
+          await this.notifier.ready();
+          await this.metro.ready();
           Logger.debug("Metro & devtools ready");
 
           let newDeviceSession;
@@ -411,7 +378,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
               },
             });
 
-            newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
+            newDeviceSession = new DeviceSession(device, this.notifier, this.metro, build);
             this.deviceSession = newDeviceSession;
 
             await newDeviceSession.start(this.deviceSettings, {
@@ -438,7 +405,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         return true;
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
-        if (this.devtools.hasConnectedClient) {
+        if (this.notifier.connectedToApp) {
           await this.metro?.reload();
           this.updateProjectState({ status: "running" });
           return true;
@@ -470,7 +437,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     }
 
     // if we have an active devtools session, we try hot reloading
-    if (onlyReloadJSWhenPossible && this.devtools.hasConnectedClient) {
+    if (onlyReloadJSWhenPossible && this.notifier.connectedToApp) {
       this.reload("hotReload");
       return;
     }
@@ -715,7 +682,8 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         startupMessage: StartupMessage.StartingPackager,
       });
       // wait for metro/devtools to start before we continue
-      await Promise.all([this.metro.ready(), this.devtools.ready()]);
+      await this.notifier.ready();
+      await this.metro.ready();
       const build = this.buildManager.startBuild(deviceInfo, {
         forceCleanBuild,
         onProgress: throttle((stageProgress: number) => {
@@ -731,7 +699,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       }
 
       Logger.debug("Metro & devtools ready");
-      newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
+      newDeviceSession = new DeviceSession(device, this.notifier, this.metro, build);
       this.deviceSession = newDeviceSession;
 
       await newDeviceSession.start(this.deviceSettings, {

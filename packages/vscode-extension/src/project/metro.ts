@@ -7,6 +7,7 @@ import { Devtools } from "./devtools";
 import stripAnsi from "strip-ansi";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import fs from "fs";
+import { Notifier } from "./notifier";
 
 export interface MetroDelegate {
   onBundleError(): void;
@@ -55,7 +56,7 @@ export class Metro implements Disposable {
   private _port = 0;
   private startPromise: Promise<void> | undefined;
 
-  constructor(private readonly devtools: Devtools, private readonly delegate: MetroDelegate) {}
+  constructor(private readonly notifier: Notifier, private readonly delegate: MetroDelegate) {}
 
   public get port() {
     return this._port;
@@ -130,7 +131,6 @@ export class Metro implements Disposable {
   ) {
     const appRootFolder = getAppRootFolder();
     const launchConfiguration = getLaunchConfiguration();
-    await this.devtools.ready();
 
     const libPath = path.join(extensionContext.extensionPath, "lib");
     let metroConfigPath: string | undefined;
@@ -142,7 +142,7 @@ export class Metro implements Disposable {
       ...(metroConfigPath ? { RN_IDE_METRO_CONFIG_PATH: metroConfigPath } : {}),
       NODE_PATH: path.join(appRootFolder, "node_modules"),
       RCT_METRO_PORT: "0",
-      RCT_DEVTOOLS_PORT: this.devtools.port.toString(),
+      RCT_DEVTOOLS_PORT: this.notifier.devtoolsPort.toString(),
       REACT_NATIVE_IDE_LIB_PATH: libPath,
     };
     let bundlerProcess: ChildProcess;
@@ -207,13 +207,7 @@ export class Metro implements Disposable {
 
   public async reload() {
     const appReady = new Promise<void>((resolve) => {
-      const handleReady = (event: string) => {
-        if (event === "RNIDE_appReady") {
-          this.devtools.removeListener(handleReady);
-          resolve();
-        }
-      };
-      this.devtools.addListener(handleReady);
+      this.notifier.listen("RNIDE_appReady", resolve, { once: true });
     });
     await fetch(`http://localhost:${this._port}/reload`);
     await appReady;

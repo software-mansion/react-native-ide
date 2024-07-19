@@ -1,6 +1,5 @@
 import { Disposable, WorkspaceConfiguration } from "vscode";
 import { Devtools } from "./devtools";
-import { EventEmitter } from "stream";
 import type { DeviceInfo } from "../common/DeviceManager";
 import type { DeviceSettings, ProjectState } from "../common/Project";
 
@@ -19,9 +18,9 @@ type SourceLocation = {
 
 type Event = {
   // app -> extension
-  RNIDE_appReady: never;
-  RNIDE_fastRefreshStarted: never;
-  RNIDE_fastRefreshComplete: never;
+  RNIDE_appReady: undefined;
+  RNIDE_fastRefreshStarted: undefined;
+  RNIDE_fastRefreshComplete: undefined;
   RNIDE_navigationChanged: { displayName: string; id: string };
   RNIDE_inspectData: {
     id: number;
@@ -37,7 +36,8 @@ type Event = {
   RNIDE_openUrl: { url: string };
   RNIDE_openNavigation: { id: string };
   RNIDE_inspect: { id: number; x: number; y: number; requestStack: boolean };
-  RNIDE_iosDevMenu: never;
+  RNIDE_iosDevMenu: undefined;
+  RNIDE_editorFileChanged: { filename: string; followEnabled: boolean };
   // extension -> webview
   devicesChanged: DeviceInfo[];
   deviceRemoved: DeviceInfo;
@@ -46,9 +46,11 @@ type Event = {
   log: string;
   deviceSettingsChanged: DeviceSettings;
   projectStateChanged: ProjectState;
-  needsNativeRebuild: never;
+  needsNativeRebuild: undefined;
 };
-const events: (keyof Event)[] = [
+type EventName = keyof Event;
+
+const uncheckedEvents = [
   "RNIDE_appReady",
   "RNIDE_fastRefreshStarted",
   "RNIDE_fastRefreshComplete",
@@ -59,6 +61,7 @@ const events: (keyof Event)[] = [
   "RNIDE_openNavigation",
   "RNIDE_inspect",
   "RNIDE_iosDevMenu",
+  "RNIDE_editorFileChanged",
   "devicesChanged",
   "deviceRemoved",
   "configChange",
@@ -68,10 +71,16 @@ const events: (keyof Event)[] = [
   "projectStateChanged",
   "needsNativeRebuild",
 ] as const;
+type EnsureKeys<A extends readonly unknown[], K extends A[number]> = readonly K[];
+const events: EnsureKeys<typeof uncheckedEvents, EventName> = uncheckedEvents;
 
-function isEvent(event: string): event is keyof Event {
-  return (events as string[]).includes(event);
+function isEvent(event: string): event is EventName {
+  return (events as readonly string[]).includes(event);
 }
+
+type SendArgs<E extends EventName, M = Event[E]> = M extends undefined
+  ? [event: E]
+  : [event: E, message: M];
 
 /** Notifier is asymmetric – it dispatches all received events to all listeners
  * (from both extension and app context) but splits sending them between
@@ -84,6 +93,7 @@ export class Notifier implements Disposable {
   private listeners = new Map<string, Set<(...args: any[]) => void>>();
 
   constructor() {
+    events.forEach((event) => this.listeners.set(event, new Set()));
     this.devtools.start();
     this.devtools.addListener((event, payload) => {
       if (!isEvent(event)) {
@@ -97,20 +107,27 @@ export class Notifier implements Disposable {
     return this.devtools.hasConnectedClient;
   }
 
-  private dispatchEvent(event: keyof Event, payload: Event[keyof Event]) {
+  get devtoolsPort() {
+    return this.devtools.port;
+  }
+
+  public async ready() {
+    await this.devtools.ready();
+  }
+
+  private dispatchEvent(event: EventName, payload: Event[EventName]) {
     this.listeners.get(event)!.forEach((listener) => listener(payload, event));
   }
 
-  send<E extends keyof Event>(event: E, message: Event[E]) {
+  send<E extends EventName, M extends Event[E]>(...[event, message]: SendArgs<E, M>) {
     this.dispatchEvent(event, message);
   }
 
-  async sendToApp<E extends keyof Event>(event: E, message: Event[E]) {
-    await this.devtools.ready();
+  sendToApp<E extends EventName, M extends Event[E]>(...[event, message]: SendArgs<E, M>) {
     this.devtools.send(event, message);
   }
 
-  listen<E extends keyof Event>(
+  listen<E extends EventName>(
     event: E,
     handler: (payload: Event[E], event: E) => void,
     options: { once?: true } = {}
