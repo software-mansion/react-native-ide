@@ -12,7 +12,12 @@ import {
 import { Metro, MetroDelegate } from "./metro";
 import { DeviceSession } from "./deviceSession";
 import { Logger } from "../Logger";
-import { BuildManager, didFingerprintChange } from "../builders/BuildManager";
+import {
+  BuildManager,
+  BuildResult,
+  DisposableBuild,
+  didFingerprintChange,
+} from "../builders/BuildManager";
 import { DeviceAlreadyUsedError, DeviceManager } from "../devices/DeviceManager";
 import { DeviceInfo } from "../common/DeviceManager";
 import { throttle } from "../common/utils";
@@ -39,6 +44,7 @@ import { homedir } from "node:os";
 import fs from "fs";
 import JSON5 from "json5";
 import { Notifier } from "./notifier";
+import { DeviceBase } from "../devices/DeviceBase";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -311,7 +317,13 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.metro.start(true, updateProgress);
         };
 
-        const selectDevice = async (deviceInfo: DeviceInfo) => {
+        const selectDevice = async (
+          deviceInfo: DeviceInfo,
+          startDeviceSession: (
+            device: DeviceBase,
+            disposableBuild: DisposableBuild<BuildResult>
+          ) => Promise<DeviceSession>
+        ) => {
           const updateProgress = throttle((stageProgress: number) => {
             if (StartupMessage.Building !== this.projectState.startupMessage) {
               return;
@@ -378,17 +390,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
               },
             });
 
-            newDeviceSession = new DeviceSession(device, this.notifier, this.metro, build);
-            this.deviceSession = newDeviceSession;
-
-            await newDeviceSession.start(this.deviceSettings, {
-              onPreviewReady: (previewURL) => {
-                this.updateProjectStateForDevice(deviceInfo, { previewURL });
-              },
-              onProgress: (startupMessage) =>
-                this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
-            });
-            Logger.debug("Device session started");
+            newDeviceSession = await startDeviceSession(device, build);
           } catch (e) {
             Logger.error("Couldn't start device session", e);
 
@@ -400,8 +402,31 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           }
           this.updateProjectStateForDevice(deviceInfo, { status: "running" });
         };
+
+        const startDeviceSession = async (
+          device: DeviceBase,
+          disposableBuild: DisposableBuild<BuildResult>
+        ) => {
+          const newDeviceSession = new DeviceSession(
+            device,
+            this.notifier,
+            this.metro,
+            disposableBuild
+          );
+          this.deviceSession = newDeviceSession;
+
+          await newDeviceSession.start(this.deviceSettings, {
+            onPreviewReady: (previewURL) => {
+              this.updateProjectStateForDevice(deviceInfo, { previewURL });
+            },
+            onProgress: (startupMessage) =>
+              this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
+          });
+          Logger.debug("Device session started");
+          return newDeviceSession;
+        };
         await start();
-        await selectDevice(deviceInfo);
+        await selectDevice(deviceInfo, startDeviceSession);
         return true;
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
