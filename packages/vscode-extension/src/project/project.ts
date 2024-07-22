@@ -52,6 +52,14 @@ const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
 const PREVIEW_ZOOM_KEY = "preview_zoom";
 
+type ReloadAction =
+  | "rebuild"
+  | "reboot"
+  | "reinstall"
+  | "restartProcess"
+  | "reloadJs"
+  | "hotReload";
+
 export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public static currentProject: Project | undefined;
 
@@ -273,9 +281,8 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   }
 
   //#region async reload()
-  public async reload(
-    type: "rebuild" | "reinstall" | "restartProcess" | "reloadJs" | "hotReload"
-  ): Promise<boolean> {
+
+  public async reload(type: ReloadAction): Promise<boolean> {
     switch (type) {
       case "rebuild":
         // we save device info and device session at the start such that we can
@@ -483,20 +490,22 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
           const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT_MS);
           if (websocketAddress) {
+            const debuggingOptions = {
+              suppressDebugStatusbar: true,
+              suppressDebugView: true,
+              suppressDebugToolbar: true,
+              suppressSaveBeforeStart: true,
+            };
+            const debuggingConfiguration = {
+              type: "com.swmansion.react-native-ide",
+              name: "React Native IDE Debugger",
+              request: "attach",
+              websocketAddress,
+            };
             const debugStarted = await debug.startDebugging(
               undefined,
-              {
-                type: "com.swmansion.react-native-ide",
-                name: "React Native IDE Debugger",
-                request: "attach",
-                websocketAddress,
-              },
-              {
-                suppressDebugStatusbar: true,
-                suppressDebugView: true,
-                suppressDebugToolbar: true,
-                suppressSaveBeforeStart: true,
-              }
+              debuggingConfiguration,
+              debuggingOptions
             );
             if (debugStarted) {
               this.debugSession = debug.activeDebugSession;
