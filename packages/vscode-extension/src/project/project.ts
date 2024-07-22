@@ -294,7 +294,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           status: "starting",
           startupMessage: StartupMessage.Restarting,
         });
-        const start = async () => {
+        const startMetro = async () => {
           const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
             switch (event.event) {
               case "RNIDE_consoleLog":
@@ -332,20 +332,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.metro.start(true, updateProgress);
         };
 
-        const selectDevice = async (
-          deviceInfo: DeviceInfo,
-          startDeviceSession: (
-            device: DeviceBase,
-            disposableBuild: DisposableBuild<BuildResult>
-          ) => Promise<DeviceSession>
-        ) => {
-          const updateProgress = throttle((stageProgress: number) => {
-            if (StartupMessage.Building !== this.projectState.startupMessage) {
-              return;
-            }
-            this.updateProjectState({ stageProgress });
-          }, 100);
-
+        const selectDevice = async (deviceInfo: DeviceInfo) => {
           const deviceAlreadyUserNotification = (e: unknown) => {
             if (e instanceof DeviceAlreadyUsedError) {
               window.showErrorMessage(
@@ -369,15 +356,12 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           }
 
           if (!device) {
-            return false;
+            return undefined;
           }
 
           Logger.log("Device selected", deviceInfo.name);
           extensionContext.workspaceState.update(LAST_SELECTED_DEVICE_KEY, deviceInfo.id);
-
-          // TODO(jgonet): remove device session
-          this.deviceSession?.dispose();
-          this.deviceSession = undefined;
+          Logger.debug("Selected device is ready");
 
           this.updateProjectState({
             selectedDevice: deviceInfo,
@@ -385,80 +369,44 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             startupMessage: StartupMessage.InitializingDevice,
             previewURL: undefined,
           });
-          Logger.debug("Selected device is ready");
+
+          return device;
+        };
+
+        const waitForMetroReady = async () => {
+          // wait for metro/devtools to start before we continue
           this.updateProjectStateForDevice(deviceInfo, {
             startupMessage: StartupMessage.StartingPackager,
           });
-          // wait for metro/devtools to start before we continue
           await this.notifier.ready();
           await this.metro.ready();
           Logger.debug("Metro & devtools ready");
-
-          let newDeviceSession;
-          try {
-            const build = this.buildManager.startBuild(deviceInfo, {
-              forceCleanBuild: true,
-              onProgress: updateProgress,
-              onSuccess: () => {
-                // reset fingerprint change flag when build finishes successfully
-                this.detectedFingerprintChange = false;
-              },
-            });
-
-            newDeviceSession = await startDeviceSession(device, build);
-          } catch (e) {
-            Logger.error("Couldn't start device session", e);
-
-            const isSelected = this.projectState.selectedDevice === deviceInfo;
-            const isNewSession = this.deviceSession === newDeviceSession;
-            if (isSelected && isNewSession) {
-              this.updateProjectState({ status: "buildError" });
-            }
-          }
-          this.updateProjectStateForDevice(deviceInfo, { status: "running" });
         };
 
-        const startDeviceSession = async (
-          device: DeviceBase,
-          disposableBuild: DisposableBuild<BuildResult>
-        ) => {
-          this.device = device;
-          const newDeviceSession = new DeviceSession(
-            device,
-            this.notifier,
-            this.metro,
-            disposableBuild
-          );
-          this.deviceSession = newDeviceSession;
+        const buildApp = (deviceInfo: DeviceInfo) => {
+          const updateProgress = throttle((stageProgress: number) => {
+            if (StartupMessage.Building !== this.projectState.startupMessage) {
+              return;
+            }
+            this.updateProjectState({ stageProgress });
+          }, 100);
 
-          const onProgress = (startupMessage: string) =>
-            this.updateProjectStateForDevice(deviceInfo, { startupMessage });
-          const onPreviewReady = (previewURL: string) => {
-            this.updateProjectStateForDevice(deviceInfo, { previewURL });
-          };
-          // start
-          onProgress(StartupMessage.BootingDevice);
-          await this.device.bootDevice();
-          await this.device.changeSettings(this.deviceSettings);
-          onProgress(StartupMessage.Building);
-          this.buildResult = await disposableBuild.build;
-          onProgress(StartupMessage.Installing);
-          await this.device.installApp(this.buildResult, false);
+          return this.buildManager.startBuild(deviceInfo, {
+            forceCleanBuild: true,
+            onProgress: updateProgress,
+            onSuccess: () => {
+              // reset fingerprint change flag when build finishes successfully
+              this.detectedFingerprintChange = false;
+            },
+          });
+        };
 
-          this.device.startPreview().then(() => {
-            onPreviewReady(this.device!.previewURL!);
+        const launchApp = async () => {
+          // TODO(jgonet): remove device session
+          this.device!.startPreview().then(() => {
+            this.updateProjectStateForDevice(deviceInfo, { previewURL: this.device!.previewURL! });
           });
 
-          // launch
-          await launch(onProgress);
-
-          await startDebugger();
-
-          Logger.debug("Device session started");
-          return newDeviceSession;
-        };
-
-        const launch = async (onProgress) => {
           if (!this.buildResult) {
             throw new Error("Expecting build to be ready");
           }
@@ -470,19 +418,26 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
               })
             : Promise.resolve();
 
-          onProgress(StartupMessage.Launching);
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.Launching,
+          });
           await this.device!.launchApp(
             this.buildResult,
             this.metro.port,
             this.notifier.devtoolsPort
           );
-
           Logger.debug("Will wait for app ready and for preview");
-          onProgress(StartupMessage.WaitingForAppToLoad);
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.WaitingForAppToLoad,
+          });
           await Promise.all([waitForAppReady, this.device!.startPreview()]);
           Logger.debug("App and preview ready, moving on...");
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.AttachingDebugger,
+          });
+          await startDebugger();
 
-          onProgress(StartupMessage.AttachingDebugger);
+          Logger.debug("Device session started");
         };
 
         const startDebugger = async () => {
@@ -515,9 +470,53 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
             Logger.error("Couldn't connect to debugger");
           }
         };
-        await start();
-        await selectDevice(deviceInfo, startDeviceSession);
-        return true;
+
+        const bootDevice = async (
+          device: DeviceBase,
+          disposableBuild: DisposableBuild<BuildResult>
+        ) => {
+          this.deviceSession?.dispose();
+          this.deviceSession = undefined;
+
+          let newDeviceSession;
+          this.updateProjectStateForDevice(deviceInfo, { status: "running" });
+          this.device = device;
+          newDeviceSession = new DeviceSession(device, this.notifier, this.metro, disposableBuild);
+          this.deviceSession = newDeviceSession;
+
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.BootingDevice,
+          });
+          await device.bootDevice();
+          await device.changeSettings(this.deviceSettings);
+        };
+
+        const installApp = async () => {
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.Installing,
+          });
+          return this.device!.installApp(this.buildResult!, false);
+        };
+
+        const device = await selectDevice(deviceInfo);
+        if (device) {
+          await startMetro();
+          await waitForMetroReady();
+
+          // TODO(jgonet): Readd try-catch
+          const build = buildApp(deviceInfo);
+          bootDevice(device, build);
+          // TODO(jgonet): Change the order of booting and build
+          this.updateProjectStateForDevice(deviceInfo, {
+            startupMessage: StartupMessage.Building,
+          });
+          this.buildResult = await build.build;
+
+          await installApp();
+          await launchApp();
+          return true;
+        }
+        return false;
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
         if (this.notifier.connectedToApp) {
