@@ -62,7 +62,7 @@ export class IosSimulatorDevice extends DeviceBase {
 
   public dispose() {
     super.dispose();
-    return exec("xcrun", ["simctl", "--set", getOrCreateDeviceSet(), "shutdown", this.deviceUDID]);
+    return this.shutdownDevice();
   }
 
   async bootDevice() {
@@ -79,6 +79,10 @@ export class IosSimulatorDevice extends DeviceBase {
         throw e;
       }
     }
+  }
+
+  public async shutdownDevice(): Promise<void> {
+    await exec("xcrun", ["simctl", "--set", getOrCreateDeviceSet(), "shutdown", this.deviceUDID]);
   }
 
   async changeSettings(settings: DeviceSettings) {

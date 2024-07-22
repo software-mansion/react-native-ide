@@ -47,14 +47,9 @@ export class AndroidEmulatorDevice extends DeviceBase {
     return pidFile;
   }
 
-  public dispose(): void {
+  public dispose() {
     super.dispose();
-    this.emulatorProcess?.kill();
-    // If the emulator process does not shut down initially due to ongoing activities or processes,
-    // a forced termination (kill signal) is sent after a certain timeout period.
-    setTimeout(() => {
-      this.emulatorProcess?.kill(9);
-    }, DISPOSE_TIMEOUT);
+    return this.shutdownDevice();
   }
 
   async changeSettings(settings: DeviceSettings) {
@@ -165,6 +160,24 @@ export class AndroidEmulatorDevice extends DeviceBase {
     });
 
     this.serial = await initPromise;
+  }
+
+  public async shutdownDevice(): Promise<void> {
+    return new Promise((resolve) => {
+      const killed = this.emulatorProcess?.kill();
+
+      if (killed) {
+        resolve();
+        return;
+      }
+
+      // If the emulator process does not shut down initially due to ongoing activities or processes,
+      // a forced termination (kill signal) is sent after a certain timeout period.
+      setTimeout(() => {
+        this.emulatorProcess?.kill(9);
+        resolve();
+      }, DISPOSE_TIMEOUT);
+    });
   }
 
   async openDevMenu() {

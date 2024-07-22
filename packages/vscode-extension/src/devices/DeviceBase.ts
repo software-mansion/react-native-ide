@@ -16,6 +16,7 @@ export abstract class DeviceBase implements Disposable {
   abstract get lockFilePath(): string;
 
   abstract bootDevice(): Promise<void>;
+  abstract shutdownDevice(): Promise<void>;
   abstract changeSettings(settings: DeviceSettings): Promise<void>;
   abstract installApp(build: BuildResult, forceReinstall: boolean): Promise<void>;
   abstract launchApp(build: BuildResult, metroPort: number, devtoolsPort: number): Promise<void>;
