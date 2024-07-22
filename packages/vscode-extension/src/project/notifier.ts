@@ -74,7 +74,7 @@ const uncheckedEvents = [
 type EnsureKeys<A extends readonly unknown[], K extends A[number]> = readonly K[];
 const events: EnsureKeys<typeof uncheckedEvents, EventName> = uncheckedEvents;
 
-function isEvent(event: string): event is EventName {
+function isKnownEvent(event: string): event is EventName {
   return (events as readonly string[]).includes(event);
 }
 
@@ -96,10 +96,9 @@ export class Notifier implements Disposable {
     events.forEach((event) => this.listeners.set(event, new Set()));
     this.devtools.start();
     this.devtools.addListener((event, payload) => {
-      if (!isEvent(event)) {
-        throw new Error("Unrecognized event type: " + event);
+      if (isKnownEvent(event)) {
+        this.dispatchEvent(event, payload);
       }
-      this.dispatchEvent(event, payload);
     });
   }
 
