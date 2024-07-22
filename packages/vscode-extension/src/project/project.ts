@@ -283,6 +283,78 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   //#region async reload()
 
   public async reload(type: ReloadAction): Promise<boolean> {
+    const installApp = ({ reinstall }: { reinstall: boolean }) => {
+      this.updateProjectStateForDevice(this.projectState.selectedDevice!, {
+        startupMessage: StartupMessage.Installing,
+      });
+      return this.device!.installApp(this.buildResult!, reinstall);
+    };
+
+    const startDebugger = async () => {
+      const WAIT_FOR_DEBUGGER_TIMEOUT_MS = 15_000;
+
+      const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT_MS);
+      if (websocketAddress) {
+        const debuggingOptions = {
+          suppressDebugStatusbar: true,
+          suppressDebugView: true,
+          suppressDebugToolbar: true,
+          suppressSaveBeforeStart: true,
+        };
+        const debuggingConfiguration = {
+          type: "com.swmansion.react-native-ide",
+          name: "React Native IDE Debugger",
+          request: "attach",
+          websocketAddress,
+        };
+        const debugStarted = await debug.startDebugging(
+          undefined,
+          debuggingConfiguration,
+          debuggingOptions
+        );
+        if (debugStarted) {
+          this.debugSession = debug.activeDebugSession;
+          Logger.debug("Conencted to debbuger, moving on...");
+        }
+      } else {
+        Logger.error("Couldn't connect to debugger");
+      }
+    };
+
+    const launchApp = async (deviceInfo: DeviceInfo) => {
+      // TODO(jgonet): remove device session
+      this.device!.startPreview().then(() => {
+        this.updateProjectStateForDevice(deviceInfo, { previewURL: this.device!.previewURL! });
+      });
+
+      if (!this.buildResult) {
+        throw new Error("Expecting build to be ready");
+      }
+      const shouldWaitForAppLaunch = getLaunchConfiguration().preview?.waitForAppLaunch !== false;
+      const waitForAppReady = shouldWaitForAppLaunch
+        ? new Promise<void>((resolve) => {
+            this.notifier.listen("RNIDE_appReady", resolve, { once: true });
+          })
+        : Promise.resolve();
+
+      this.updateProjectStateForDevice(deviceInfo, {
+        startupMessage: StartupMessage.Launching,
+      });
+      await this.device!.launchApp(this.buildResult, this.metro.port, this.notifier.devtoolsPort);
+      Logger.debug("Will wait for app ready and for preview");
+      this.updateProjectStateForDevice(deviceInfo, {
+        startupMessage: StartupMessage.WaitingForAppToLoad,
+      });
+      await Promise.all([waitForAppReady, this.device!.startPreview()]);
+      Logger.debug("App and preview ready, moving on...");
+      this.updateProjectStateForDevice(deviceInfo, {
+        startupMessage: StartupMessage.AttachingDebugger,
+      });
+      await startDebugger();
+
+      Logger.debug("Device session started");
+    };
+
     switch (type) {
       case "rebuild":
         // we save device info and device session at the start such that we can
@@ -294,6 +366,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           status: "starting",
           startupMessage: StartupMessage.Restarting,
         });
+
         const startMetro = async () => {
           const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
             switch (event.event) {
@@ -333,7 +406,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         };
 
         const selectDevice = async (deviceInfo: DeviceInfo) => {
-          const deviceAlreadyUserNotification = (e: unknown) => {
+          function notifyAboutAcquiringDeviceError(e: unknown) {
             if (e instanceof DeviceAlreadyUsedError) {
               window.showErrorMessage(
                 "This device is already used by other instance of React Native IDE.\nPlease select another device",
@@ -345,14 +418,14 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
                 e
               );
             }
-          };
+          }
 
           // TODO(jgonet): make this cleaner
           let device: IosSimulatorDevice | AndroidEmulatorDevice | undefined;
           try {
             device = await this.deviceManager.acquireDevice(deviceInfo);
           } catch (e) {
-            deviceAlreadyUserNotification(e);
+            notifyAboutAcquiringDeviceError(e);
           }
 
           if (!device) {
@@ -401,76 +474,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           });
         };
 
-        const launchApp = async () => {
-          // TODO(jgonet): remove device session
-          this.device!.startPreview().then(() => {
-            this.updateProjectStateForDevice(deviceInfo, { previewURL: this.device!.previewURL! });
-          });
-
-          if (!this.buildResult) {
-            throw new Error("Expecting build to be ready");
-          }
-          const shouldWaitForAppLaunch =
-            getLaunchConfiguration().preview?.waitForAppLaunch !== false;
-          const waitForAppReady = shouldWaitForAppLaunch
-            ? new Promise<void>((resolve) => {
-                this.notifier.listen("RNIDE_appReady", resolve, { once: true });
-              })
-            : Promise.resolve();
-
-          this.updateProjectStateForDevice(deviceInfo, {
-            startupMessage: StartupMessage.Launching,
-          });
-          await this.device!.launchApp(
-            this.buildResult,
-            this.metro.port,
-            this.notifier.devtoolsPort
-          );
-          Logger.debug("Will wait for app ready and for preview");
-          this.updateProjectStateForDevice(deviceInfo, {
-            startupMessage: StartupMessage.WaitingForAppToLoad,
-          });
-          await Promise.all([waitForAppReady, this.device!.startPreview()]);
-          Logger.debug("App and preview ready, moving on...");
-          this.updateProjectStateForDevice(deviceInfo, {
-            startupMessage: StartupMessage.AttachingDebugger,
-          });
-          await startDebugger();
-
-          Logger.debug("Device session started");
-        };
-
-        const startDebugger = async () => {
-          const WAIT_FOR_DEBUGGER_TIMEOUT_MS = 15_000;
-
-          const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT_MS);
-          if (websocketAddress) {
-            const debuggingOptions = {
-              suppressDebugStatusbar: true,
-              suppressDebugView: true,
-              suppressDebugToolbar: true,
-              suppressSaveBeforeStart: true,
-            };
-            const debuggingConfiguration = {
-              type: "com.swmansion.react-native-ide",
-              name: "React Native IDE Debugger",
-              request: "attach",
-              websocketAddress,
-            };
-            const debugStarted = await debug.startDebugging(
-              undefined,
-              debuggingConfiguration,
-              debuggingOptions
-            );
-            if (debugStarted) {
-              this.debugSession = debug.activeDebugSession;
-              Logger.debug("Conencted to debbuger, moving on...");
-            }
-          } else {
-            Logger.error("Couldn't connect to debugger");
-          }
-        };
-
         const bootDevice = async (
           device: DeviceBase,
           disposableBuild: DisposableBuild<BuildResult>
@@ -478,10 +481,14 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.deviceSession?.dispose();
           this.deviceSession = undefined;
 
-          let newDeviceSession;
           this.updateProjectStateForDevice(deviceInfo, { status: "running" });
           this.device = device;
-          newDeviceSession = new DeviceSession(device, this.notifier, this.metro, disposableBuild);
+          const newDeviceSession = new DeviceSession(
+            device,
+            this.notifier,
+            this.metro,
+            disposableBuild
+          );
           this.deviceSession = newDeviceSession;
 
           this.updateProjectStateForDevice(deviceInfo, {
@@ -489,13 +496,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           });
           await device.bootDevice();
           await device.changeSettings(this.deviceSettings);
-        };
-
-        const installApp = async () => {
-          this.updateProjectStateForDevice(deviceInfo, {
-            startupMessage: StartupMessage.Installing,
-          });
-          return this.device!.installApp(this.buildResult!, false);
         };
 
         const device = await selectDevice(deviceInfo);
@@ -512,10 +512,23 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           });
           this.buildResult = await build.build;
 
-          await installApp();
-          await launchApp();
+          await installApp({ reinstall: false });
+          await launchApp(deviceInfo);
           return true;
         }
+        return false;
+      case "reboot":
+        // TODO(jgonet): implement
+        return false;
+      case "reinstall":
+        await installApp({ reinstall: true });
+        await launchApp(this.projectState.selectedDevice!);
+        return true;
+      case "restartProcess":
+        await launchApp(this.projectState.selectedDevice!);
+        return false;
+      case "reloadJs":
+        // TODO(jgonet): implement
         return false;
       case "hotReload":
         // TODO(jgonet): Remove, needed only for special handling of RNIDE_appReady event
@@ -525,8 +538,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           return true;
         }
         return false;
-      default:
-        throw new Error("incorrect type passed");
     }
   }
 
