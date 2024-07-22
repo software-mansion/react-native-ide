@@ -45,6 +45,8 @@ import fs from "fs";
 import JSON5 from "json5";
 import { Notifier } from "./notifier";
 import { DeviceBase } from "../devices/DeviceBase";
+import { DebugSession } from "vscode";
+import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -52,6 +54,12 @@ const PREVIEW_ZOOM_KEY = "preview_zoom";
 
 export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public static currentProject: Project | undefined;
+
+  // from device session
+  private inspectCallID = 7621;
+  private debugSession: DebugSession | undefined;
+  private device?: DeviceBase;
+  private buildResult: BuildResult | undefined;
 
   private metro: Metro;
   private debugSessionListener!: Disposable;
@@ -407,6 +415,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           device: DeviceBase,
           disposableBuild: DisposableBuild<BuildResult>
         ) => {
+          this.device = device;
           const newDeviceSession = new DeviceSession(
             device,
             this.notifier,
@@ -415,15 +424,87 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           );
           this.deviceSession = newDeviceSession;
 
-          await newDeviceSession.start(this.deviceSettings, {
-            onPreviewReady: (previewURL) => {
-              this.updateProjectStateForDevice(deviceInfo, { previewURL });
-            },
-            onProgress: (startupMessage) =>
-              this.updateProjectStateForDevice(deviceInfo, { startupMessage }),
+          const onProgress = (startupMessage: string) =>
+            this.updateProjectStateForDevice(deviceInfo, { startupMessage });
+          const onPreviewReady = (previewURL: string) => {
+            this.updateProjectStateForDevice(deviceInfo, { previewURL });
+          };
+          // start
+          onProgress(StartupMessage.BootingDevice);
+          await this.device.bootDevice();
+          await this.device.changeSettings(this.deviceSettings);
+          onProgress(StartupMessage.Building);
+          this.buildResult = await disposableBuild.build;
+          onProgress(StartupMessage.Installing);
+          await this.device.installApp(this.buildResult, false);
+
+          this.device.startPreview().then(() => {
+            onPreviewReady(this.device!.previewURL!);
           });
+
+          // launch
+          await launch(onProgress);
+
+          await startDebugger();
+
           Logger.debug("Device session started");
           return newDeviceSession;
+        };
+
+        const launch = async (onProgress) => {
+          if (!this.buildResult) {
+            throw new Error("Expecting build to be ready");
+          }
+          const shouldWaitForAppLaunch =
+            getLaunchConfiguration().preview?.waitForAppLaunch !== false;
+          const waitForAppReady = shouldWaitForAppLaunch
+            ? new Promise<void>((resolve) => {
+                this.notifier.listen("RNIDE_appReady", resolve, { once: true });
+              })
+            : Promise.resolve();
+
+          onProgress(StartupMessage.Launching);
+          await this.device!.launchApp(
+            this.buildResult,
+            this.metro.port,
+            this.notifier.devtoolsPort
+          );
+
+          Logger.debug("Will wait for app ready and for preview");
+          onProgress(StartupMessage.WaitingForAppToLoad);
+          await Promise.all([waitForAppReady, this.device!.startPreview()]);
+          Logger.debug("App and preview ready, moving on...");
+
+          onProgress(StartupMessage.AttachingDebugger);
+        };
+
+        const startDebugger = async () => {
+          const WAIT_FOR_DEBUGGER_TIMEOUT_MS = 15_000;
+
+          const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT_MS);
+          if (websocketAddress) {
+            const debugStarted = await debug.startDebugging(
+              undefined,
+              {
+                type: "com.swmansion.react-native-ide",
+                name: "React Native IDE Debugger",
+                request: "attach",
+                websocketAddress,
+              },
+              {
+                suppressDebugStatusbar: true,
+                suppressDebugView: true,
+                suppressDebugToolbar: true,
+                suppressSaveBeforeStart: true,
+              }
+            );
+            if (debugStarted) {
+              this.debugSession = debug.activeDebugSession;
+              Logger.debug("Conencted to debbuger, moving on...");
+            }
+          } else {
+            Logger.error("Couldn't connect to debugger");
+          }
         };
         await start();
         await selectDevice(deviceInfo, startDeviceSession);
