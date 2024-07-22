@@ -84,7 +84,7 @@ export function execSync(name: string, args?: string[], options?: execa.SyncOpti
   return result;
 }
 
-export function command(commandWithArgs: string, options?: execa.Options) {
+export function command(commandWithArgs: string, options?: execa.Options & { quiet?: boolean }) {
   const subprocess = execa.command(commandWithArgs, overridePWD(options));
   async function printErrorsOnExit() {
     try {
@@ -96,6 +96,10 @@ export function command(commandWithArgs: string, options?: execa.Options) {
       Logger.error("Command", commandWithArgs, "execution resulted in an error:", e);
     }
   }
-  printErrorsOnExit(); // don't want to await here not to block the outer method
+
+  if (!options?.quiet) {
+    printErrorsOnExit(); // don't want to await here not to block the outer method
+  }
+
   return subprocess;
 }

@@ -8,6 +8,7 @@ import { DeviceInfo, IOSDeviceInfo, Platform } from "../common/DeviceManager";
 import { extensionContext, getAppRootFolder } from "../utilities/extensionContext";
 import { exec } from "../utilities/subprocess";
 import { Disposable, OutputChannel, window } from "vscode";
+import { DependencyManager } from "../dependency/DependencyManager";
 
 const ANDROID_BUILD_CACHE_KEY = "android_build_cache";
 const IOS_BUILD_CACHE_KEY = "ios_build_cache";
@@ -94,6 +95,8 @@ type StartBuildOptions = {
   onSuccess?: () => void;
 };
 export class BuildManager {
+  constructor(private readonly dependencyManager: DependencyManager) {}
+
   private buildOutputChannel: OutputChannel | undefined;
 
   public focusBuildOutput() {
@@ -225,7 +228,13 @@ export class BuildManager {
       forceCleanBuild,
       cancelToken,
       this.buildOutputChannel,
-      progressListener
+      progressListener,
+      () => {
+        return this.dependencyManager.checkPodsInstalled();
+      },
+      (appRootFolder: string, cleanBuild: boolean, token: CancelToken) => {
+        return this.dependencyManager.installPods(appRootFolder, cleanBuild, token);
+      }
     );
     const buildResult = { ...build, platform: Platform.IOS };
 

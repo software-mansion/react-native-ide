@@ -18,9 +18,11 @@ import Button from "../components/shared/Button";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { ZoomLevelType } from "../../common/Project";
+import { useUtils } from "../providers/UtilsProvider";
 
 function PreviewView() {
   const { projectState, project } = useProject();
+  const { reportIssue } = useUtils();
 
   const [isInspecting, setIsInspecting] = useState(false);
   const zoomLevel = projectState.previewZoom ?? "Fit";
@@ -165,7 +167,7 @@ function PreviewView() {
         />
 
         <div className="spacer" />
-        <Button className="feedback-button" onClick={() => project.reportIssue()}>
+        <Button className="feedback-button" onClick={() => reportIssue()}>
           {extensionVersion || "Beta"}: Report issue
         </Button>
         <DeviceSettingsDropdown disabled={devicesNotFound}>

@@ -2,8 +2,6 @@ import { RelativePattern, workspace, Uri, OutputChannel } from "vscode";
 import { exec, lineReader } from "../utilities/subprocess";
 import { Logger } from "../Logger";
 import path from "path";
-import { checkIosDependenciesInstalled } from "../dependency/DependencyChecker";
-import { installIOSDependencies } from "../dependency/DependencyInstaller";
 import { CancelToken } from "./BuildManager";
 import { BuildIOSProgressProcessor } from "./BuildIOSProgressProcessor";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
@@ -15,7 +13,6 @@ import {
 } from "../devices/IosSimulatorDevice";
 import { IOSDeviceInfo, Platform } from "../common/DeviceManager";
 import { EXPO_GO_BUNDLE_ID, downloadExpoGo, isExpoGoProject } from "./expoGo";
-
 type IOSProjectInfo =
   | {
       workspaceLocation: string;
@@ -156,7 +153,13 @@ export async function buildIos(
   forceCleanBuild: boolean,
   cancelToken: CancelToken,
   outputChannel: OutputChannel,
-  progressListener: (newProgress: number) => void
+  progressListener: (newProgress: number) => void,
+  checkIosDependenciesInstalled: () => Promise<boolean>,
+  installPods: (
+    appRootFolder: string,
+    forceCleanBuild: boolean,
+    cancelToken: CancelToken
+  ) => Promise<void>
 ) {
   if (await isExpoGoProject()) {
     const appPath = await downloadExpoGo(Platform.IOS, cancelToken);
@@ -167,7 +170,7 @@ export async function buildIos(
 
   const isPodsInstalled = await checkIosDependenciesInstalled();
   if (!isPodsInstalled) {
-    await cancelToken.adapt(installIOSDependencies(appRootFolder, forceCleanBuild));
+    await installPods(appRootFolder, forceCleanBuild, cancelToken);
   }
 
   const xcodeProject = await findXcodeProject(appRootFolder);

@@ -8,14 +8,26 @@ import { getAppRootFolder } from "../utilities/extensionContext";
 import path from "path";
 import { getIosSourceDir } from "../builders/buildIOS";
 import { isExpoGoProject } from "../builders/expoGo";
+import {
+  isNodeModulesInstalled,
+  isPackageManagerAvailable,
+  PackageManagerName,
+  resolvePackageManager,
+} from "../utilities/packageManager";
+import { getLaunchConfiguration } from "../utilities/launchConfiguration";
+import { CancelToken } from "../builders/BuildManager";
 
 const MIN_REACT_NATIVE_VERSION_SUPPORTED = "0.71.0";
 const MIN_EXPO_SDK_VERSION_SUPPORTED = "49.0.0";
 
-export class DependencyChecker implements Disposable {
+export class DependencyManager implements Disposable {
   private disposables: Disposable[] = [];
+  // React Native prepares build scripts based on node_modules, we need to reinstall pods if they change
+  private stalePods = true;
 
-  constructor(private readonly webview: Webview) {}
+  constructor(private readonly webview: Webview) {
+    this.setWebviewMessageListener();
+  }
 
   public dispose() {
     // Dispose of all disposables (i.e. commands) for the current webview panel
@@ -27,7 +39,7 @@ export class DependencyChecker implements Disposable {
     }
   }
 
-  public setWebviewMessageListener() {
+  private setWebviewMessageListener() {
     Logger.debug("Setup dependency checker listeners.");
     this.webview.onDidReceiveMessage(
       (message: any) => {
@@ -61,6 +73,10 @@ export class DependencyChecker implements Disposable {
             Logger.debug("Received checkPodsInstalled command.");
             this.checkPodsInstalled();
             return;
+          case "checkNodeModulesInstalled":
+            Logger.debug("Received checkNodeModulesInstalled command.");
+            this.checkNodeModulesInstalled();
+            return;
         }
       },
       undefined,
@@ -83,6 +99,68 @@ export class DependencyChecker implements Disposable {
     });
     Logger.debug("Nodejs installed:", installed);
     return installed;
+  }
+
+  public async checkNodeModulesInstalled() {
+    const packageManager = await resolvePackageManager();
+
+    if (!isPackageManagerAvailable(packageManager)) {
+      Logger.error(`Required package manager: ${packageManager} is not installed`);
+      throw new Error(`${packageManager} is not installed`);
+    }
+
+    const installed = await isNodeModulesInstalled(packageManager);
+
+    this.webview.postMessage({
+      command: "isNodeModulesInstalled",
+      data: {
+        installed,
+        info: "Whether node modules are installed",
+        error: undefined,
+      },
+    });
+    Logger.debug("Node Modules installed:", installed);
+    return { installed, packageManager };
+  }
+
+  public async installNodeModules(manager: PackageManagerName): Promise<void> {
+    this.stalePods = true;
+
+    this.webview.postMessage({
+      command: "installingNodeModules",
+    });
+
+    const workspacePath = getAppRootFolder();
+    let installationCommand;
+
+    switch (manager) {
+      case "npm":
+        installationCommand = "npm install";
+        break;
+      case "yarn":
+        installationCommand = "yarn install";
+        break;
+      case "pnpm":
+        installationCommand = "pnpm install";
+        break;
+      case "bun":
+        installationCommand = "bun install";
+        break;
+    }
+
+    await command(installationCommand, {
+      cwd: workspacePath,
+      quiet: true,
+    });
+
+    this.webview.postMessage({
+      command: "isNodeModulesInstalled",
+      data: {
+        installed: true,
+        info: "Whether node modules are installed",
+        error: undefined,
+      },
+    });
   }
 
   /* Android-related */
@@ -189,20 +267,82 @@ export class DependencyChecker implements Disposable {
     return installed;
   }
 
+  private async checkIosDependenciesInstalled() {
+    if (await isExpoGoProject()) {
+      // for Expo Go projects, we never return an error here because Pods are never needed
+      return true;
+    }
+
+    if (this.stalePods) {
+      return false;
+    }
+
+    const iosDirPath = getIosSourceDir(getAppRootFolder());
+
+    Logger.debug(`Check pods in ${iosDirPath} ${getAppRootFolder()}`);
+    if (!iosDirPath) {
+      return false;
+    }
+
+    const podfileLockExists = fs.existsSync(path.join(iosDirPath, "Podfile.lock"));
+    const podsDirExists = fs.existsSync(path.join(iosDirPath, "Pods"));
+
+    return podfileLockExists && podsDirExists;
+  }
+
   public async checkPodsInstalled() {
-    const installed = await checkIosDependenciesInstalled();
-    const errorMessage = "iOS dependencies are not installed.";
+    const installed = await this.checkIosDependenciesInstalled();
 
     this.webview.postMessage({
       command: "isPodsInstalled",
       data: {
         installed,
         info: "Whether iOS dependencies are installed.",
-        error: installed ? undefined : errorMessage,
+        error: undefined,
       },
     });
     Logger.debug("Project pods installed:", installed);
     return installed;
+  }
+
+  public async installPods(
+    appRootFolder: string,
+    forceCleanBuild: boolean,
+    cancelToken: CancelToken
+  ) {
+    const iosDirPath = getIosSourceDir(appRootFolder);
+
+    if (!iosDirPath) {
+      throw new Error(`ios directory was not found inside the workspace.`);
+    }
+
+    const commandInIosDir = (args: string) => {
+      return command(args, {
+        cwd: iosDirPath,
+        env: {
+          ...getLaunchConfiguration().env,
+          LANG: "en_US.UTF-8",
+        },
+      });
+    };
+
+    if (forceCleanBuild) {
+      await cancelToken.adapt(commandInIosDir("pod deintegrate"));
+    }
+
+    await cancelToken.adapt(commandInIosDir("pod install"));
+
+    this.stalePods = false;
+
+    this.webview.postMessage({
+      command: "isPodsInstalled",
+      data: {
+        installed: true,
+        info: "Whether iOS dependencies are installed.",
+        error: undefined,
+      },
+    });
+    Logger.debug("Project pods installed");
   }
 }
 
@@ -240,25 +380,6 @@ export function checkMinDependencyVersionInstalled(dependency: string, minVersio
     Logger.debug(message, "Module not found.");
     return "not_installed";
   }
-}
-
-export async function checkIosDependenciesInstalled() {
-  if (await isExpoGoProject()) {
-    // for Expo Go projects, we never return an error here because Pods are never needed
-    return true;
-  }
-
-  const iosDirPath = getIosSourceDir(getAppRootFolder());
-
-  Logger.debug(`Check pods in ${iosDirPath} ${getAppRootFolder()}`);
-  if (!iosDirPath) {
-    return false;
-  }
-
-  const podfileLockExists = fs.existsSync(path.join(iosDirPath, "Podfile.lock"));
-  const podsDirExists = fs.existsSync(path.join(iosDirPath, "Pods"));
-
-  return podfileLockExists && podsDirExists;
 }
 
 export async function checkAndroidEmulatorExists() {
