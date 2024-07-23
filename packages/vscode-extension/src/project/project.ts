@@ -39,10 +39,10 @@ import { IosSimulatorDevice } from "../devices/IosSimulatorDevice";
 import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { Notifier } from "./notifier";
 import { DeviceBase } from "../devices/DeviceBase";
-import { DebugSession } from "vscode";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import { DependencyManager } from "../dependency/DependencyManager";
 import { throttle } from "../utilities/throttle";
+import { DebuggingSession } from "../debugging/debugSession";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v2";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -61,12 +61,11 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
   // from device session
   private inspectCallID = 7621;
-  private debugSession: DebugSession | undefined;
+  private debugSession: DebuggingSession | undefined;
   private device?: DeviceBase;
   private buildResult: BuildResult | undefined;
 
   private metro: Metro;
-  private debugSessionListener!: Disposable;
   private buildManager: BuildManager;
   private eventEmitter = new EventEmitter();
 
@@ -95,7 +94,13 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     },
   };
 
-  async initNotifier() {
+  constructor(
+    private readonly deviceManager: DeviceManager,
+    private readonly dependencyManager: DependencyManager,
+    private readonly notifier: Notifier
+  ) {
+    Project.currentProject = this;
+
     this.notifier.listen("RNIDE_appReady", () => {
       Logger.debug("App ready");
     });
@@ -111,55 +116,11 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       if (this.projectState.status === "runtimeError") return;
       this.updateProjectState({ status: "running" });
     });
-    await this.notifier.ready();
-  }
 
-  constructor(
-    private readonly deviceManager: DeviceManager,
-    private readonly dependencyManager: DependencyManager,
-    private readonly notifier: Notifier
-  ) {
-    const start = async () => {
-      const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
-        switch (event.event) {
-          case "RNIDE_consoleLog":
-            this.eventEmitter.emit("log", event.body);
-            break;
-          case "RNIDE_paused":
-            if (event.body?.reason === "exception") {
-              // if we know that incrmental bundle error happened, we don't want to change the status
-              if (this.projectState.status === "incrementalBundleError") return;
-              this.updateProjectState({ status: "runtimeError" });
-            } else {
-              this.updateProjectState({ status: "debuggerPaused" });
-            }
-            commands.executeCommand("workbench.view.debug");
-            break;
-          case "RNIDE_continued":
-            this.updateProjectState({ status: "running" });
-            break;
-        }
-      };
-      const updateProgress = throttle((stageProgress: number) => {
-        if (StartupMessage.WaitingForAppToLoad !== this.projectState.startupMessage) {
-          return;
-        }
-        this.updateProjectState({ stageProgress });
-      }, 100);
-
-      await this.initNotifier();
-
-      this.debugSessionListener = debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
-      Logger.debug("Launching metro");
-
-      this.metro.start(false, updateProgress, [this.installNodeModules()]);
-      await this.metro.ready();
-    };
-    Project.currentProject = this;
     this.metro = new Metro(this.notifier, this);
     // TODO(jgonet): simultaneous metro and build
     this.buildManager = new BuildManager(dependencyManager);
-    start();
+    this.startMetro();
     this.trySelectingInitialDevice();
     this.deviceManager.addListener("deviceRemoved", this.removeDeviceListener);
     this.detectedFingerprintChange = false;
@@ -260,7 +221,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     this.deviceSession?.dispose();
     this.metro.dispose();
     this.notifier.dispose();
-    this.debugSessionListener.dispose();
     this.deviceManager.removeListener("deviceRemoved", this.removeDeviceListener);
     this.workspaceWatcher.dispose();
     this.fileSaveWatcherDisposable.dispose();
@@ -277,45 +237,64 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
   //#region async reload()
 
-  public async reload(type: ReloadAction): Promise<boolean> {
-    const installApp = ({ reinstall }: { reinstall: boolean }) => {
-      this.updateProjectStateForDevice(this.projectState.selectedDevice!, {
-        startupMessage: StartupMessage.Installing,
-      });
-      return this.device!.installApp(this.buildResult!, reinstall);
-    };
-
-    const startDebugger = async () => {
-      const WAIT_FOR_DEBUGGER_TIMEOUT_MS = 15_000;
-
-      const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT_MS);
-      if (websocketAddress) {
-        const debuggingOptions = {
-          suppressDebugStatusbar: true,
-          suppressDebugView: true,
-          suppressDebugToolbar: true,
-          suppressSaveBeforeStart: true,
-        };
-        const debuggingConfiguration = {
-          type: "com.swmansion.react-native-ide",
-          name: "React Native IDE Debugger",
-          request: "attach",
-          websocketAddress,
-        };
-        const debugStarted = await debug.startDebugging(
-          undefined,
-          debuggingConfiguration,
-          debuggingOptions
-        );
-        if (debugStarted) {
-          this.debugSession = debug.activeDebugSession;
-          Logger.debug("Conencted to debbuger, moving on...");
-        }
-      } else {
-        Logger.error("Couldn't connect to debugger");
+  private async startMetro() {
+    const updateProgress = throttle((stageProgress: number) => {
+      if (StartupMessage.WaitingForAppToLoad !== this.projectState.startupMessage) {
+        return;
       }
-    };
+      this.updateProjectState({ stageProgress });
+    }, 100);
 
+    if (this.metro) {
+      this.metro.dispose();
+    }
+    await this.notifier.ready();
+    this.metro = new Metro(this.notifier, this);
+    Logger.debug("Launching metro");
+    await this.metro.start(true, updateProgress, [this.installNodeModules()]);
+
+    await this.notifier.ready();
+    await this.metro.ready();
+  }
+
+  private async startDebugger() {
+    if (this.debugSession) {
+      this.debugSession.dispose();
+      this.debugSession = undefined;
+    }
+
+    const websocketAddress = await this.metro.getDebuggerURL();
+    if (websocketAddress) {
+      this.debugSession = new DebuggingSession(websocketAddress);
+
+      this.debugSession.listenToEvent("RNIDE_consoleLog", ({ body }) => {
+        this.eventEmitter.emit("log", body);
+      });
+      this.debugSession.listenToEvent("RNIDE_paused", ({ body }) => {
+        const isException = body?.reason === "exception";
+
+        this.updateProjectState({ status: isException ? "runtimeError" : "debuggerPaused" });
+        commands.executeCommand("workbench.view.debug");
+      });
+      this.debugSession.listenToEvent("RNIDE_continued", () => {
+        this.updateProjectState({ status: "running" });
+      });
+
+      await this.debugSession.start();
+      Logger.debug("Connected to debugger, moving on...");
+    } else {
+      Logger.error("Couldn't connect to debugger");
+    }
+  }
+
+  private async installApp({ reinstall }: { reinstall: boolean }) {
+    this.updateProjectStateForDevice(this.projectState.selectedDevice!, {
+      startupMessage: StartupMessage.Installing,
+    });
+    return this.device!.installApp(this.buildResult!, reinstall);
+  }
+
+  public async reload(type: ReloadAction): Promise<boolean> {
     const launchApp = async (deviceInfo: DeviceInfo) => {
       // TODO(jgonet): remove device session
       this.device!.startPreview().then(() => {
@@ -345,7 +324,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       this.updateProjectStateForDevice(deviceInfo, {
         startupMessage: StartupMessage.AttachingDebugger,
       });
-      await startDebugger();
+      await this.startDebugger();
 
       Logger.debug("Device session started");
     };
@@ -361,44 +340,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           status: "starting",
           startupMessage: StartupMessage.Restarting,
         });
-
-        const startMetro = async () => {
-          const handleDebuggerEvents = (event: DebugSessionCustomEvent) => {
-            switch (event.event) {
-              case "RNIDE_consoleLog":
-                this.eventEmitter.emit("log", event.body);
-                break;
-              case "RNIDE_paused":
-                if (event.body?.reason === "exception") {
-                  // if we know that incrmental bundle error happened, we don't want to change the status
-                  if (this.projectState.status === "incrementalBundleError") return;
-                  this.updateProjectState({ status: "runtimeError" });
-                } else {
-                  this.updateProjectState({ status: "debuggerPaused" });
-                }
-                commands.executeCommand("workbench.view.debug");
-                break;
-              case "RNIDE_continued":
-                this.updateProjectState({ status: "running" });
-                break;
-            }
-          };
-          const updateProgress = throttle((stageProgress: number) => {
-            if (StartupMessage.WaitingForAppToLoad !== this.projectState.startupMessage) {
-              return;
-            }
-            this.updateProjectState({ stageProgress });
-          }, 100);
-
-          this.metro.dispose();
-          this.metro = new Metro(this.notifier, this);
-          this.debugSessionListener.dispose();
-          this.debugSessionListener =
-            debug.onDidReceiveDebugSessionCustomEvent(handleDebuggerEvents);
-
-          Logger.debug("Launching metro");
-          this.metro.start(true, updateProgress, [this.installNodeModules()]);
-        };
 
         const selectDevice = async (deviceInfo: DeviceInfo) => {
           function notifyAboutAcquiringDeviceError(e: unknown) {
@@ -441,13 +382,13 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           return device;
         };
 
+        // TODO(jgonet): Remove waitForMetroReady
         const waitForMetroReady = async () => {
           // wait for metro/devtools to start before we continue
           this.updateProjectStateForDevice(deviceInfo, {
             startupMessage: StartupMessage.StartingPackager,
           });
-          await this.notifier.ready();
-          await this.metro.ready();
+
           Logger.debug("Metro & devtools ready");
         };
 
@@ -477,6 +418,9 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.deviceSession = undefined;
 
           this.updateProjectStateForDevice(deviceInfo, { status: "running" });
+          if (this.device) {
+            await this.device.dispose();
+          }
           this.device = device;
           const newDeviceSession = new DeviceSession(
             device,
@@ -495,7 +439,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
 
         const device = await selectDevice(deviceInfo);
         if (device) {
-          await startMetro();
+          await this.startMetro();
           await waitForMetroReady();
 
           // TODO(jgonet): Readd try-catch
@@ -507,7 +451,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           });
           this.buildResult = await build.build;
 
-          await installApp({ reinstall: false });
+          await this.installApp({ reinstall: false });
           await launchApp(deviceInfo);
           return true;
         }
@@ -516,7 +460,7 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
         // TODO(jgonet): implement
         return false;
       case "reinstall":
-        await installApp({ reinstall: true });
+        await this.installApp({ reinstall: true });
         await launchApp(this.projectState.selectedDevice!);
         return true;
       case "restartProcess":
@@ -630,11 +574,11 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   }
 
   public async resumeDebugger() {
-    this.deviceSession?.resumeDebugger();
+    this.debugSession?.resumeDebugger();
   }
 
   public async stepOverDebugger() {
-    this.deviceSession?.stepOverDebugger();
+    this.debugSession?.stepOverDebugger();
   }
 
   public async focusBuildOutput() {

@@ -47,9 +47,9 @@ export class AndroidEmulatorDevice extends DeviceBase {
     return pidFile;
   }
 
-  public dispose() {
+  public async dispose() {
     super.dispose();
-    return this.shutdownDevice();
+    await this.shutdownDevice();
   }
 
   async changeSettings(settings: DeviceSettings) {

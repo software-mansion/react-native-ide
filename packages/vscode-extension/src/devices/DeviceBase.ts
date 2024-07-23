@@ -33,7 +33,7 @@ export abstract class DeviceBase implements Disposable {
     return acquired;
   }
 
-  dispose() {
+  async dispose() {
     if (this.acquired) {
       try {
         fs.unlinkSync(this.lockFilePath);

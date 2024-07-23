@@ -10,8 +10,6 @@ import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import { Notifier } from "./notifier";
 
-const WAIT_FOR_DEBUGGER_TIMEOUT = 15000; // 15 seconds
-
 type ProgressCallback = (startupMessage: string) => void;
 type PreviewReadyCallback = (previewURL: string) => void;
 
@@ -83,7 +81,7 @@ export class DeviceSession implements Disposable {
   }
 
   public async startDebugger() {
-    const websocketAddress = await this.metro.getDebuggerURL(WAIT_FOR_DEBUGGER_TIMEOUT);
+    const websocketAddress = await this.metro.getDebuggerURL();
     if (websocketAddress) {
       const debugStarted = await debug.startDebugging(
         undefined,
