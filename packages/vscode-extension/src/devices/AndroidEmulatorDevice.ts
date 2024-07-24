@@ -9,7 +9,12 @@ import { ANDROID_HOME } from "../utilities/android";
 import { ChildProcess, exec, lineReader } from "../utilities/subprocess";
 import { v4 as uuidv4 } from "uuid";
 import { AndroidBuildResult, BuildResult } from "../builders/BuildManager";
-import { AndroidSystemImageInfo, DeviceInfo, Platform } from "../common/DeviceManager";
+import {
+  AndroidDeviceInfo,
+  AndroidSystemImageInfo,
+  DeviceInfo,
+  Platform,
+} from "../common/DeviceManager";
 import { Logger } from "../Logger";
 import { AppPermissionType, DeviceSettings } from "../common/Project";
 import { getAndroidSystemImages } from "../utilities/sdkmanager";
@@ -33,12 +38,16 @@ export class AndroidEmulatorDevice extends DeviceBase {
   private emulatorProcess: ChildProcess | undefined;
   private serial: string | undefined;
 
-  constructor(private readonly avdId: string) {
+  constructor(private readonly avdId: string, private readonly info: AndroidDeviceInfo) {
     super();
   }
 
   public get platform(): Platform {
     return Platform.Android;
+  }
+
+  get deviceInfo(): AndroidDeviceInfo {
+    return this.info;
   }
 
   get lockFilePath(): string {

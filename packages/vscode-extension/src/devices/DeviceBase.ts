@@ -2,7 +2,7 @@ import { Disposable } from "vscode";
 import { Preview } from "./preview";
 import { BuildResult } from "../builders/BuildManager";
 import { AppPermissionType, DeviceSettings } from "../common/Project";
-import { Platform } from "../common/DeviceManager";
+import { DeviceInfo, Platform } from "../common/DeviceManager";
 import { tryAcquiringLock } from "../utilities/common";
 
 import fs from "fs";
@@ -14,6 +14,7 @@ export abstract class DeviceBase implements Disposable {
   private acquired = false;
 
   abstract get lockFilePath(): string;
+  abstract get deviceInfo(): DeviceInfo;
 
   abstract bootDevice(): Promise<void>;
   abstract shutdownDevice(): Promise<void>;
