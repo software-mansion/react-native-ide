@@ -14,7 +14,11 @@
         "${workspaceFolder}/dist/extension.js",
         "${workspaceFolder}/dist/extension.js.map"
       ],
-      "preLaunchTask": "build and run everything"
+      "preLaunchTask": "build and run everything",
+      "env": {
+        // Uncomment to enable more detailed logging from the simulator server
+        // "SIMSERVER_LOG": "debug"
+      }
     }
   ]
 }
