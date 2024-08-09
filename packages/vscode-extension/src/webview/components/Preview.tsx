@@ -137,24 +137,37 @@ type TouchPointMarkerProps = {
   x: number;
   y: number;
   isPressing: boolean;
+  sizeFactor?: number;
+  color?: string;
+  pressedColor?: string;
 };
 
-function TouchPointMarker({ x, y, isPressing }: TouchPointMarkerProps) {
+function TouchPointMarker({
+  x,
+  y,
+  isPressing,
+  color = "175, 175, 175",
+  pressedColor = "135, 135, 135",
+  sizeFactor = 1,
+}: TouchPointMarkerProps) {
+  const adjustedSize = 33 * sizeFactor;
+  const finalSize = isPressing ? adjustedSize * 0.8 : adjustedSize;
+
   return (
     <div
       style={{
         position: "absolute",
         top: `${y * 100}%`,
         left: `${x * 100}%`,
-        width: "33px",
-        height: "33px",
-        backgroundColor: "rgba(175, 175, 175, 0.75)",
+        width: `${finalSize}px`,
+        height: `${finalSize}px`,
+        backgroundColor: `rgba(${isPressing ? pressedColor : color}, 0.6)`,
         borderRadius: "50%",
-        borderColor: "rgba(135, 135, 135, 0.6)",
+        borderColor: `rgba(${isPressing ? pressedColor : color}, 0.5)`,
         borderWidth: "1px",
         borderStyle: "solid",
         transform: "translate(-50%, -50%)",
-        boxShadow: isPressing ? "none" : "2px 2px 6px 1px rgba(0, 0, 0, 0.2)",
+        boxShadow: isPressing ? "none" : "2px 2px 6px 1px rgba(0, 0, 0, 0.4)",
       }}
     />
   );
@@ -253,11 +266,13 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
   type MouseMove = "Move" | "Down" | "Up";
   function sendTouch(event: MouseEvent<HTMLDivElement>, type: MouseMove) {
     const { x, y } = getTouchPosition(event);
+    console.log("FRYTKI SINGLE", x, y, type);
     project.dispatchTouch(x, y, type);
   }
 
   function sendMultiTouch(event: MouseEvent<HTMLDivElement>, type: MouseMove) {
     const { x, y } = getTouchPosition(event);
+    console.log("FRYTKI SINGLE", x, y, anchorPoint.x, anchorPoint.y, type);
     project.dispatchMultiTouch(x, y, anchorPoint.x, anchorPoint.y, type);
   }
 
@@ -340,25 +355,29 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
 
   function onMouseUp(e: MouseEvent<HTMLDivElement>) {
     e.preventDefault();
-    if (isMultiTouching) {
-      sendMultiTouch(e, "Up");
-    } else if (isPressing) {
-      sendTouch(e, "Up");
+    if (isPressing) {
+      if (isMultiTouching) {
+        sendMultiTouch(e, "Up");
+      } else {
+        sendTouch(e, "Up");
+      }
+      setIsPressing(false);
     }
-    setIsPressing(false);
   }
 
   function onMouseLeave(e: MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     if (isPressing) {
-      sendTouch(e, "Up");
+      if (isMultiTouching) {
+        setIsMultiTouching(false);
+        setIsPanning(false);
+        sendMultiTouch(e, "Up");
+      } else {
+        sendTouch(e, "Up");
+      }
       setIsPressing(false);
     }
-    if (isMultiTouching) {
-      sendMultiTouch(e, "Up");
-      setIsMultiTouching(false);
-      setIsPanning(false);
-    }
+
     if (isInspecting) {
       // we force inspect event here to make sure no extra events are throttled
       // and will be dispatched later on
@@ -474,13 +493,31 @@ function Preview({ isInspecting, setIsInspecting, zoomLevel, onZoomChanged }: Pr
                 />
 
                 {isMultiTouching && (
-                  <TouchPointMarker x={touchPoint.x} y={touchPoint.y} isPressing={isPressing} />
+                  <TouchPointMarker
+                    x={touchPoint.x}
+                    y={touchPoint.y}
+                    isPressing={isPressing}
+                    color="175, 175, 175"
+                    pressedColor="84, 180, 148"
+                  />
+                )}
+                {isMultiTouching && (
+                  <TouchPointMarker
+                    x={anchorPoint.x}
+                    y={anchorPoint.y}
+                    isPressing={true}
+                    sizeFactor={0.3}
+                    color="135, 135, 135"
+                    pressedColor="135, 135, 135"
+                  />
                 )}
                 {isMultiTouching && (
                   <TouchPointMarker
                     x={mirroredTouchPosition.x}
                     y={mirroredTouchPosition.y}
                     isPressing={isPressing}
+                    color="175, 175, 175"
+                    pressedColor="84, 180, 148"
                   />
                 )}
 
