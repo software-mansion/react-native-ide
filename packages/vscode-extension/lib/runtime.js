@@ -12,9 +12,13 @@ function __RNIDE_breakOnError(error, isFatal) {
   debugger;
 }
 
-global.ErrorUtils.setGlobalHandler(__RNIDE_breakOnError);
-
-global.__fbDisableExceptionsManager = true;
+global.__RNIDE_onDebuggerConnected = function () {
+  // install error handler that breaks into the debugger but only do it when
+  // debugger is connected. Otherwise we may miss some important initialization
+  // errors or even pause the app execution before the debugger is attached.
+  global.ErrorUtils.setGlobalHandler(__RNIDE_breakOnError);
+  global.__fbDisableExceptionsManager = true;
+};
 
 function wrapConsole(consoleFunc) {
   return function (...args) {

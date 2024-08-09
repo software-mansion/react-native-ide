@@ -30,6 +30,7 @@
   height: var(--phone-screen-height);
   top: var(--phone-top);
   left: calc(var(--phone-left) - 7px);
+  user-select: none;
 }
 
 .phone-sized {
@@ -42,6 +43,7 @@
   mask-image: var(--phone-mask-image);
   -webkit-mask-size: cover;
   mask-size: cover;
+  user-select: none;
 }
 
 .phone-screen {
@@ -54,6 +56,7 @@
   mask-image: var(--phone-mask-image);
   -webkit-mask-size: cover;
   mask-size: cover;
+  user-select: none;
 }
 
 .phone-frame {

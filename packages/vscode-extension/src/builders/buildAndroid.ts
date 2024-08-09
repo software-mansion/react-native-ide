@@ -11,7 +11,7 @@ import { extensionContext } from "../utilities/extensionContext";
 import { BuildAndroidProgressProcessor } from "./BuildAndroidProgressProcessor";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import { EXPO_GO_PACKAGE_NAME, downloadExpoGo, isExpoGoProject } from "./expoGo";
-import { Platform } from "../common/DeviceManager";
+import { DevicePlatform } from "../common/DeviceManager";
 import { getReactNativeVersion } from "../utilities/reactNative";
 
 const BUILD_TOOLS_PATH = path.join(ANDROID_HOME, "build-tools");
@@ -71,7 +71,7 @@ export async function buildAndroid(
   progressListener: (newProgress: number) => void
 ) {
   if (await isExpoGoProject()) {
-    const apkPath = await downloadExpoGo(Platform.Android, cancelToken);
+    const apkPath = await downloadExpoGo(DevicePlatform.Android, cancelToken);
     return { apkPath, packageName: EXPO_GO_PACKAGE_NAME };
   }
   const androidSourceDir = getAndroidSourceDir(appRootFolder);
@@ -108,7 +108,7 @@ export async function buildAndroid(
   const buildProcess = cancelToken.adapt(
     exec("./gradlew", gradleArgs, {
       cwd: androidSourceDir,
-      env: { ...process.env, ...buildOptions.env, JAVA_HOME, ANDROID_HOME },
+      env: { ...buildOptions.env, JAVA_HOME, ANDROID_HOME },
       buffer: false,
     })
   );

@@ -72,11 +72,15 @@ export class Metro implements Disposable {
     await this.startPromise;
   }
 
-  public async start(resetCache: boolean, progressListener: (newStageProgress: number) => void) {
+  public async start(
+    resetCache: boolean,
+    progressListener: (newStageProgress: number) => void,
+    dependencies: Promise<any>[]
+  ) {
     if (this.startPromise) {
       throw new Error("metro already started");
     }
-    this.startPromise = this.startInternal(resetCache, progressListener);
+    this.startPromise = this.startInternal(resetCache, progressListener, dependencies);
     return this.startPromise;
   }
 
@@ -126,11 +130,12 @@ export class Metro implements Disposable {
 
   public async startInternal(
     resetCache: boolean,
-    progressListener: (newStageProgress: number) => void
+    progressListener: (newStageProgress: number) => void,
+    dependencies: Promise<any>[]
   ) {
     const appRootFolder = getAppRootFolder();
     const launchConfiguration = getLaunchConfiguration();
-    await this.devtools.ready();
+    await Promise.all([this.devtools.ready()].concat(dependencies));
 
     const libPath = path.join(extensionContext.extensionPath, "lib");
     let metroConfigPath: string | undefined;
@@ -138,7 +143,6 @@ export class Metro implements Disposable {
       metroConfigPath = findCustomMetroConfig(launchConfiguration.metroConfigPath);
     }
     const metroEnv = {
-      ...process.env,
       ...launchConfiguration.env,
       ...(metroConfigPath ? { RN_IDE_METRO_CONFIG_PATH: metroConfigPath } : {}),
       NODE_PATH: path.join(appRootFolder, "node_modules"),
@@ -169,7 +173,7 @@ export class Metro implements Disposable {
           reject(new Error("Metro exited but did not start server successfully."));
         });
 
-      lineReader(bundlerProcess).onLineRead((line) => {
+      lineReader(bundlerProcess, true).onLineRead((line) => {
         try {
           const event = JSON.parse(line) as MetroEvent;
           if (event.type === "bundle_transform_progressed") {

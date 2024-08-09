@@ -44,6 +44,13 @@ button {
   color: var(--swm-default-text);
 }
 
+.dropdown-menu-item-content {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
 .dropdown-menu-label {
   font-size: 12px;
   line-height: 25px;

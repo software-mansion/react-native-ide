@@ -6,11 +6,11 @@ import iphone15pro from "../../assets/iphone_15_pro/skin.webp";
 import iphone15promask from "../../assets/iphone_15_pro/mask.png";
 import iphoneSE from "../../assets/iphone_SE/skin.webp";
 import iphoneSEmask from "../../assets/iphone_SE/mask.png";
-import { Platform } from "../../common/DeviceManager";
+import { DevicePlatform } from "../../common/DeviceManager";
 
 export type DeviceProperties = {
   name: string;
-  platform: Platform;
+  platform: DevicePlatform;
   screenWidth: number;
   screenHeight: number;
   frameWidth: number;
@@ -25,7 +25,7 @@ export type DeviceProperties = {
 export const iOSSupportedDevices: DeviceProperties[] = [
   {
     name: "iPhone 15 Pro",
-    platform: Platform.IOS,
+    platform: DevicePlatform.IOS,
     screenWidth: 1179,
     screenHeight: 2556,
     frameWidth: 1285,
@@ -37,7 +37,7 @@ export const iOSSupportedDevices: DeviceProperties[] = [
   },
   {
     name: "iPhone SE (3rd generation)",
-    platform: Platform.IOS,
+    platform: DevicePlatform.IOS,
     screenWidth: 750,
     screenHeight: 1334,
     frameWidth: 874,
@@ -52,7 +52,7 @@ export const iOSSupportedDevices: DeviceProperties[] = [
 export const AndroidSupportedDevices: DeviceProperties[] = [
   {
     name: "Google Pixel 7",
-    platform: Platform.Android,
+    platform: DevicePlatform.Android,
     screenWidth: 1080,
     screenHeight: 2400,
     frameWidth: 1200,
@@ -64,7 +64,7 @@ export const AndroidSupportedDevices: DeviceProperties[] = [
   },
   {
     name: "Google Pixel 6a",
-    platform: Platform.Android,
+    platform: DevicePlatform.Android,
     screenWidth: 1080,
     screenHeight: 2400,
     frameWidth: 1207,

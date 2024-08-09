@@ -1,8 +1,25 @@
 import { Logger } from "../Logger";
 import execa, { ExecaChildProcess } from "execa";
 import readline from "readline";
+import { Platform } from "./platform";
 
 export type ChildProcess = ExecaChildProcess<string>;
+
+function overridePWD<T extends execa.Options>(options?: T) {
+  // Some processes rely on PWD environment variable to tell the current working
+  // directory in which cases PWD takes precedence over process.cwd.
+  // By default, execa would copy all process env to the subprocess (which is desired)
+  // including PWD that may point to a different location that the selected cwd (indicated
+  // by options.cwd). Specifically, when VSCode is launched from the launcher (as opposed to
+  // being launched from command line using 'code' command), the PWD is set to "/".
+  // This method overrides PWD to the current cwd option when it's set for the subprocess call
+  // therefore removing the risk of the subprocess using the wrong working directory.
+
+  if (options?.cwd) {
+    return { ...options, env: { ...options.env, PWD: options.cwd } };
+  }
+  return options;
+}
 
 /**
  * When using this methid, the subprocess should be started with buffer: false option
@@ -33,36 +50,30 @@ export function lineReader(childProcess: ExecaChildProcess<string>, includeStder
 }
 
 export function exec(
-  ...args: [string, string[]?, (execa.Options & { allowNonZeroExit?: boolean })?]
+  name: string,
+  args?: string[],
+  options?: execa.Options & { allowNonZeroExit?: boolean }
 ) {
-  const subprocess = execa(...args);
-  const allowNonZeroExit = args[2]?.allowNonZeroExit;
+  const subprocess = execa(
+    name,
+    args,
+    Platform.select({ macos: overridePWD(options), windows: options })
+  );
+  const allowNonZeroExit = options?.allowNonZeroExit;
   async function printErrorsOnExit() {
     try {
       const result = await subprocess;
       if (result.stderr) {
-        Logger.debug(
-          "Subprocess",
-          args[0],
-          args[1]?.join(" "),
-          "produced error output:",
-          result.stderr
-        );
+        Logger.debug("Subprocess", name, args?.join(" "), "produced error output:", result.stderr);
       }
     } catch (e) {
       // @ts-ignore idk how to deal with error objects in ts
       const { exitCode, signal } = e;
       if (exitCode === undefined && signal !== undefined) {
-        Logger.info("Subprocess", args[0], "was terminated with", signal);
+        Logger.info("Subprocess", name, "was terminated with", signal);
       } else {
         if (!allowNonZeroExit || !exitCode) {
-          Logger.error(
-            "Subprocess",
-            args[0],
-            args[1]?.join(" "),
-            "execution resulted in an error:",
-            e
-          );
+          Logger.error("Subprocess", name, args?.join(" "), "execution resulted in an error:", e);
         }
       }
     }
@@ -71,32 +82,37 @@ export function exec(
   return subprocess;
 }
 
-export function execSync(...args: [string, string[]?, execa.SyncOptions?]) {
-  const result = execa.sync(...args);
+export function execSync(name: string, args?: string[], options?: execa.SyncOptions) {
+  const result = execa.sync(
+    name,
+    args,
+    Platform.select({ macos: overridePWD(options), windows: options })
+  );
   if (result.stderr) {
-    Logger.debug(
-      "Subprocess",
-      args[0],
-      args[1]?.join(" "),
-      "produced error output:",
-      result.stderr
-    );
+    Logger.debug("Subprocess", name, args?.join(" "), "produced error output:", result.stderr);
   }
   return result;
 }
 
-export function command(...args: [string, execa.Options?]) {
-  const subprocess = execa.command(...args);
+export function command(commandWithArgs: string, options?: execa.Options & { quiet?: boolean }) {
+  const subprocess = execa.command(
+    commandWithArgs,
+    Platform.select({ macos: overridePWD(options), windows: options })
+  );
   async function printErrorsOnExit() {
     try {
       const result = await subprocess;
       if (result.stderr) {
-        Logger.debug("Command", args[0], "produced error output:", result.stderr);
+        Logger.debug("Command", commandWithArgs, "produced error output:", result.stderr);
       }
     } catch (e) {
-      Logger.error("Command", args[0], "execution resulted in an error:", e);
+      Logger.error("Command", commandWithArgs, "execution resulted in an error:", e);
     }
   }
-  printErrorsOnExit(); // don't want to await here not to block the outer method
+
+  if (!options?.quiet) {
+    printErrorsOnExit(); // don't want to await here not to block the outer method
+  }
+
   return subprocess;
 }

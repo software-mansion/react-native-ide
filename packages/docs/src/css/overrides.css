@@ -121,3 +121,21 @@ nav [class*="_sidebarFooter"] {
 img + blockquote {
   margin: var(--ifm-spacing-vertical) 0;
 }
+
+div[class^="announcementBar_"] {
+  font-size: 20px;
+  height: 36px;
+
+  color: var(--swm-navy-light-100);
+  font-weight: 500;
+  border-bottom: 1px solid var(--swm-border);
+  border-top: 1px solid var(--swm-border);
+  background-color: var(--swm-off-background);
+}
+
+@media (max-width: 768px) {
+  div[class^="announcementBar_"] {
+    font-size: 15px;
+    height: 32px;
+  }
+}

@@ -1,0 +1,60 @@
+.licenseContainer {
+  background-color: var(--swm-green-light-60);
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: row;
+  gap: 4.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.contentContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 3;
+  z-index: 3;
+}
+
+.contentContainer span {
+  font-size: 20px;
+  max-width: 650px;
+}
+
+.licenseContainer a {
+  display: flex;
+  align-items: flex-end;
+  z-index: 3;
+}
+
+@media (max-width: 996px) {
+  .licenseContainer {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .contentContainer span,
+  .contentContainer h2 {
+    text-wrap: balance;
+  }
+}
+
+.ellipse {
+  height: 250px;
+  width: 250px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #ffffff66 35%, #ffffff33 70%, #ffffff00 100%);
+  position: absolute;
+  z-index: 2;
+}
+
+.ellipse:nth-of-type(1) {
+  top: -8rem;
+  left: -6rem;
+  rotate: 80deg;
+}
+
+.ellipse:nth-of-type(2) {
+  right: -8rem;
+  bottom: -10rem;
+  rotate: 180deg;
+}

@@ -14,7 +14,11 @@ submodule_status=$(git submodule status ../simulator-server)
 if [[ $submodule_status == -* ]]; then # submodule is not initialized
 
 submodule_hash=$(git ls-tree HEAD ../simulator-server | awk '{print $3}')
-product_path="$output_dir/sim-server-Release-${submodule_hash}"
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    product_path="$output_dir/sim-server-Release-${submodule_hash}.exe"
+else
+    product_path="$output_dir/sim-server-Release-${submodule_hash}"
+fi
 
 # if the binary is not present, print instructions to download it from releases page:
 if [[ ! -f "$product_path" ]]; then
@@ -57,6 +61,11 @@ fi # submodule check
 # Create the target directory if it doesn't exist
 mkdir -p "$output_dir"
 target_location="$output_dir/sim-server"
+
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then # rename to *.exe on Windows
+    mv "$product_path" "$target_location-executable.exe"
+    exit 0
+fi
 
 # Check if a file was found and copy it
 if [[ -n $product_path ]]; then

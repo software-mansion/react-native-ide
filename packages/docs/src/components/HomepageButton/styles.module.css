@@ -132,6 +132,19 @@ a.homepageButtonLink:hover {
   border: 1px solid var(--swm-landing-button-navy);
 }
 
+.buttonWhiteStyling {
+  background-color: transparent;
+  color: var(--swm-landing-button-navy);
+}
+
+.buttonWhiteStyling svg {
+  stroke: var(--swm-landing-button-navy);
+}
+
+.buttonWhiteStyling:hover {
+  background-color: var(--swm-off-white);
+}
+
 .arrow {
   position: relative;
   display: flex;

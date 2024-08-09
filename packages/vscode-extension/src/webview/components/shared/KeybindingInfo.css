@@ -1,0 +1,18 @@
+.keybinding {
+  color: var(--swm-secondary-text);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.symbol {
+  border-radius: 3px;
+  border-style: solid;
+  border-width: 1px;
+  display: inline-block;
+  font-size: 11px;
+  margin: 0 2px;
+  padding: 3px 5px;
+  vertical-align: middle;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}

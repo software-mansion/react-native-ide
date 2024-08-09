@@ -20,13 +20,23 @@ export class TabPanel implements Disposable {
   public static currentPanel: TabPanel | undefined;
   private readonly _panel: WebviewPanel;
   private webviewController: WebviewController;
+  private changeViewStateDisposable: Disposable;
 
   private constructor(panel: WebviewPanel, context: ExtensionContext) {
     this._panel = panel;
     this._panel.iconPath = Uri.joinPath(context.extensionUri, "assets", "logo.svg");
     // Set an event listener to listen for when the panel is disposed (i.e. when the user closes
     // the panel or when the panel is closed programmatically)
-    this._panel.onDidDispose(() => this.dispose());
+
+    commands.executeCommand("setContext", "RNIDE.isTabPanelFocused", this._panel.active);
+
+    this.changeViewStateDisposable = this._panel.onDidChangeViewState((e) => {
+      commands.executeCommand("setContext", "RNIDE.isTabPanelFocused", this._panel.active);
+    });
+
+    this._panel.onDidDispose(() => {
+      this.dispose();
+    });
 
     // Set the HTML content for the webview panel
     this._panel.webview.html = generateWebviewContent(
@@ -88,6 +98,9 @@ export class TabPanel implements Disposable {
     // this is triggered when the user closes the webview panel by hand, we want to reset open_panel_on_activation
     // key in this case to prevent extension from automatically opening the panel next time they open the editor
     extensionContext.workspaceState.update(OPEN_PANEL_ON_ACTIVATION, undefined);
+
+    this.changeViewStateDisposable.dispose();
+    commands.executeCommand("setContext", "RNIDE.isTabPanelFocused", false);
 
     TabPanel.currentPanel = undefined;
 

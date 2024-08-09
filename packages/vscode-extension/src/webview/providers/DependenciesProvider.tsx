@@ -178,10 +178,7 @@ export default function DependenciesProvider({ children }: PropsWithChildren) {
           updateDependency("NodeModules", data);
           break;
         case "installingNodeModules":
-          updateDependency("NodeModules", {
-            error: undefined,
-            installed: InstallationStatus.InProgress,
-          });
+          updateDependency("NodeModules", { installed: InstallationStatus.InProgress });
           break;
         case "isReactNativeInstalled":
           updateDependency("ReactNative", data);

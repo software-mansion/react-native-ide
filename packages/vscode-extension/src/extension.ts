@@ -10,6 +10,7 @@ import {
   ConfigurationChangeEvent,
   DebugConfigurationProviderTriggerKind,
   DebugAdapterExecutable,
+  Disposable,
 } from "vscode";
 import vscode from "vscode";
 import { TabPanel } from "./panels/Tabpanel";
@@ -31,6 +32,7 @@ import { PanelLocation } from "./common/WorkspaceConfig";
 import { getLaunchConfiguration } from "./utilities/launchConfiguration";
 import { Project } from "./project/project";
 import { findSingleFileInWorkspace } from "./utilities/common";
+import { Platform } from "./utilities/platform";
 
 const BIN_MODIFICATION_DATE_KEY = "bin_modification_date";
 const OPEN_PANEL_ON_ACTIVATION = "open_panel_on_activation";
@@ -64,8 +66,8 @@ export function deactivate(context: ExtensionContext): undefined {
 export async function activate(context: ExtensionContext) {
   handleUncaughtErrors();
 
-  if (process.platform !== "darwin") {
-    window.showErrorMessage("React Native IDE works only on macOS.", "Dismiss");
+  if (Platform.OS !== "macos" && Platform.OS !== "windows") {
+    window.showErrorMessage("React Native IDE works only on macOS and Windows.", "Dismiss");
     return;
   }
 
@@ -74,7 +76,14 @@ export async function activate(context: ExtensionContext) {
     enableDevModeLogging();
   }
 
-  await fixBinaries(context);
+  if (Platform.OS === "macos") {
+    try {
+      await fixMacosBinary(context);
+    } catch (error) {
+      Logger.error("Error when processing simulator-server binaries", error);
+      // we let the activation continue, as otherwise the diagnostics command would fail
+    }
+  }
 
   commands.executeCommand("setContext", "RNIDE.sidePanelIsClosed", false);
 
@@ -103,6 +112,16 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
+  function closeWithConfirmation() {
+    window
+      .showWarningMessage("Are you sure you want to close the IDE panel?", "Yes", "No")
+      .then((item) => {
+        if (item === "Yes") {
+          commands.executeCommand("RNIDE.closePanel");
+        }
+      });
+  }
+
   context.subscriptions.push(
     window.registerWebviewViewProvider(
       SidePanelViewProvider.viewType,
@@ -115,8 +134,40 @@ export async function activate(context: ExtensionContext) {
   context.subscriptions.push(commands.registerCommand("RNIDE.openPanel", showIDEPanel));
   context.subscriptions.push(commands.registerCommand("RNIDE.showPanel", showIDEPanel));
   context.subscriptions.push(
+    commands.registerCommand("RNIDE.closeWithConfirmation", closeWithConfirmation)
+  );
+  context.subscriptions.push(
     commands.registerCommand("RNIDE.diagnose", diagnoseWorkspaceStructure)
   );
+
+  async function closeAuxiliaryBar(registeredCommandDisposable: Disposable) {
+    registeredCommandDisposable.dispose(); // must dispose to avoid endless loops
+
+    const wasIDEPanelVisible = SidePanelViewProvider.currentProvider?.view?.visible;
+
+    // run the built-in closeAuxiliaryBar command
+    await commands.executeCommand("workbench.action.closeAuxiliaryBar");
+
+    const isIDEPanelVisible = SidePanelViewProvider.currentProvider?.view?.visible;
+
+    // if closing of Auxiliary bar affected the visibility of SidePanelView, we assume that it means that it was pinned to the secondary sidebar.
+    if (wasIDEPanelVisible && !isIDEPanelVisible) {
+      commands.executeCommand("RNIDE.closePanel");
+    }
+
+    // re-register to continue intercepting closeAuxiliaryBar commands
+    registeredCommandDisposable = commands.registerCommand(
+      "workbench.action.closeAuxiliaryBar",
+      async (arg) => closeAuxiliaryBar(registeredCommandDisposable)
+    );
+    context.subscriptions.push(registeredCommandDisposable);
+  }
+
+  let closeAuxiliaryBarDisposable = commands.registerCommand(
+    "workbench.action.closeAuxiliaryBar",
+    async (arg) => closeAuxiliaryBar(closeAuxiliaryBarDisposable)
+  );
+  context.subscriptions.push(closeAuxiliaryBarDisposable);
 
   // Debug adapter used by custom launch configuration, we register it in case someone tries to run the IDE configuration
   // The current workflow is that people shouldn't run it, but since it is listed under launch options it might happen
@@ -292,32 +343,23 @@ async function diagnoseWorkspaceStructure() {
   }
 }
 
-async function fixBinaries(context: ExtensionContext) {
+async function fixMacosBinary(context: ExtensionContext) {
   // MacOS prevents binary files from being executed when downloaded from the internet.
   // It requires notarization ticket to be available in the package where the binary was distributed
   // with. Apparently Apple does not allow for individual binary files to be notarized and only .app/.pkg and .dmg
-  // files are allows. To prevent the binary from being quarantined, we clone it to a temporary file and then
-  // move it back to the original location. This way the quarantine attribute is removed.
-  // We try to do it only when the binary has been modified or for new installation, we detect it based
-  // on the modification date of the binary file.
-  const binModiticationDate = context.globalState.get(BIN_MODIFICATION_DATE_KEY);
-  const binPath = Uri.file(context.asAbsolutePath("dist/sim-server"));
-  const tmpFile = Uri.file(path.join(os.tmpdir(), "sim-server"));
+  // files are allowed. To prevent the binary from being quarantined, we clone using byte-copy (with dd). This way the
+  // quarantine attribute is removed. We try to do it only when the binary has been modified or for the new installation,
+  // we detect that based on the modification date of the binary file.
+  const buildBinPath = Uri.file(context.asAbsolutePath("dist/sim-server"));
+  const exeBinPath = Uri.file(context.asAbsolutePath("dist/sim-server-executable"));
 
-  if (binModiticationDate !== undefined) {
-    const binStats = await workspace.fs.stat(binPath);
-    if (binStats?.mtime === binModiticationDate) {
-      return;
-    }
+  // if build and exe binaries don't match, we need to clone the build binary – we always want the exe one to the exact
+  // copy of the build binary:
+  try {
+    await command(`diff -q ${buildBinPath.fsPath} ${exeBinPath.fsPath}`);
+  } catch (error) {
+    // if binaries are different, diff will return non-zero code and we will land in catch clouse
+    await command(`dd if=${buildBinPath.fsPath} of=${exeBinPath.fsPath}`);
   }
-
-  // if the modification date is not set or the binary has been modified since copied, we clone the binary
-  // using `dd` command to remove the quarantine attribute
-  await command(`dd if=${binPath.fsPath} of=${tmpFile.fsPath}`);
-  await workspace.fs.delete(binPath);
-  await workspace.fs.rename(tmpFile, binPath);
-  await fs.promises.chmod(binPath.fsPath, 0o755);
-
-  const binStats = await workspace.fs.stat(binPath);
-  context.globalState.update(BIN_MODIFICATION_DATE_KEY, binStats?.mtime);
+  await fs.promises.chmod(exeBinPath.fsPath, 0o755);
 }

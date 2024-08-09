@@ -15,7 +15,7 @@ import {
 } from "./AndroidEmulatorDevice";
 import {
   DeviceInfo,
-  Platform,
+  DevicePlatform,
   DeviceManagerInterface,
   IOSRuntimeInfo,
   DeviceManagerEventMap,
@@ -27,6 +27,7 @@ import { EventEmitter } from "stream";
 import { Disposable } from "vscode";
 import { Logger } from "../Logger";
 import { extensionContext } from "../utilities/extensionContext";
+import { Platform } from "../utilities/platform";
 
 const DEVICE_LIST_CACHE_KEY = "device_list_cache";
 
@@ -51,10 +52,14 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
   }
 
   public async acquireDevice(deviceInfo: DeviceInfo) {
-    if (deviceInfo.platform === Platform.IOS) {
+    if (deviceInfo.platform === DevicePlatform.IOS) {
+      if (Platform.OS !== "macos") {
+        throw new Error("Invalid platform. Expected macos.");
+      }
+
       const simulators = await listSimulators();
       const simulatorInfo = simulators.find((device) => device.id === deviceInfo.id);
-      if (!simulatorInfo || simulatorInfo.platform !== Platform.IOS) {
+      if (!simulatorInfo || simulatorInfo.platform !== DevicePlatform.IOS) {
         throw new Error(`Simulator ${deviceInfo.id} not found`);
       }
       const device = new IosSimulatorDevice(simulatorInfo.UDID);
@@ -66,7 +71,7 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
     } else {
       const emulators = await listEmulators();
       const emulatorInfo = emulators.find((device) => device.id === deviceInfo.id);
-      if (!emulatorInfo || emulatorInfo.platform !== Platform.Android) {
+      if (!emulatorInfo || emulatorInfo.platform !== DevicePlatform.Android) {
         throw new Error(`Emulator ${deviceInfo.id} not found`);
       }
       const device = new AndroidEmulatorDevice(emulatorInfo.avdId);
@@ -85,12 +90,12 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
   private async loadDevices(forceReload = false) {
     if (forceReload) {
       // Clear the cache when force reload is requested
-      extensionContext.workspaceState.update(DEVICE_LIST_CACHE_KEY, undefined);
+      extensionContext.globalState.update(DEVICE_LIST_CACHE_KEY, undefined);
     }
     if (!this.loadDevicesPromise || forceReload) {
       this.loadDevicesPromise = this.loadDevicesInternal().then((devices) => {
         this.loadDevicesPromise = undefined;
-        extensionContext.workspaceState.update(DEVICE_LIST_CACHE_KEY, devices);
+        extensionContext.globalState.update(DEVICE_LIST_CACHE_KEY, devices);
         return devices;
       });
     }
@@ -102,10 +107,13 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
       Logger.error("Error fetching emulators", e);
       return [];
     });
-    const simulators = listSimulators().catch((e) => {
-      Logger.error("Error fetching simulators", e);
-      return [];
-    });
+    const simulators =
+      Platform.OS === "macos"
+        ? listSimulators().catch((e) => {
+            Logger.error("Error fetching simulators", e);
+            return [];
+          })
+        : Promise.resolve([]);
     const [androidDevices, iosDevices] = await Promise.all([emulators, simulators]);
     const devices = [...androidDevices, ...iosDevices];
     this.eventEmitter.emit("devicesChanged", devices);
@@ -121,7 +129,7 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
   }
 
   public async listAllDevices() {
-    const devices = extensionContext.workspaceState.get(DEVICE_LIST_CACHE_KEY) as
+    const devices = extensionContext.globalState.get(DEVICE_LIST_CACHE_KEY) as
       | DeviceInfo[]
       | undefined;
     if (devices) {
@@ -151,10 +159,10 @@ export class DeviceManager implements Disposable, DeviceManagerInterface {
   }
 
   public async removeDevice(device: DeviceInfo) {
-    if (device.platform === Platform.IOS) {
+    if (device.platform === DevicePlatform.IOS) {
       await removeIosSimulator(device.UDID, SimulatorDeviceSet.RN_IDE);
     }
-    if (device.platform === Platform.Android) {
+    if (device.platform === DevicePlatform.Android) {
       await removeEmulator(device.avdId);
     }
     await this.loadDevices();

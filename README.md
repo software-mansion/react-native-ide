@@ -26,7 +26,7 @@ The current version supports developing on macOS for Android and iOS platforms w
 
 - Managing iOS and Android simulator (for now only iPhone Pro and Pixel 7 skins are available)
 - Automatically build and launch your project (keeping track of native or javascript updates automatically)
-- Integrated debugger always available – when running the project you can set breakpoints in the editor and don't need to bother with any additional configuration to get your application stop at those breakpoints
+- Integrated debugger always available – when running the project you can set breakpoints in the editor and don't need to bother with any additional configuration to get your application to stop at those breakpoints
 - Element inspector that jumps to component code
 - Integrated console log output panel that links to file/line with the log statement
 - Preview package that allows for working on components in isolation (render single component instead of the whole app)

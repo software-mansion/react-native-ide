@@ -5,11 +5,12 @@ import { useModal } from "../providers/ModalProvider";
 import CreateDeviceView from "./CreateDeviceView";
 import { useDevices } from "../providers/DevicesProvider";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { AndroidSupportedDevices, iOSSupportedDevices } from "../utilities/consts";
 import { IOSDeviceTypeInfo, IOSRuntimeInfo } from "../../common/DeviceManager";
 import { useDependencies } from "../providers/DependenciesProvider";
 import { vscode } from "../utilities/vscode";
+import { Platform } from "../providers/UtilsProvider";
 
 const firstIosDeviceName = iOSSupportedDevices[0].name;
 const firstAndroidDeviceName = AndroidSupportedDevices[0].name;
@@ -26,6 +27,23 @@ function getMax<T>(array: T[], predicate: (element: T, currentMax: T) => boolean
     }
   }
   return max;
+}
+
+function useLoadingState() {
+  const [state, setState] = useState(false);
+  const withLoading = useCallback(
+    async (fn: () => Promise<void>) => {
+      setState(true);
+      try {
+        await fn();
+      } finally {
+        setState(false);
+      }
+    },
+    [setState]
+  );
+
+  return [state, withLoading] as const;
 }
 
 function firstRuntimeSupportedDevice(supportedDeviceTypes: IOSDeviceTypeInfo[]) {
@@ -48,8 +66,8 @@ function findNewestIosRuntime(runtimes: IOSRuntimeInfo[]) {
 function DevicesNotFoundView() {
   const { openModal, closeModal } = useModal();
   const { iOSRuntimes, androidImages, deviceManager } = useDevices();
-  const [isIOSCreating, setIOSCreating] = useState(false);
-  const [isAndroidCreating, setAndroidCreating] = useState(false);
+  const [isIOSCreating, withIosCreating] = useLoadingState();
+  const [isAndroidCreating, withAndroidCreating] = useLoadingState();
   const { androidEmulatorError, iosSimulatorError } = useDependencies();
 
   function openCreateNewDeviceModal() {
@@ -65,21 +83,18 @@ function DevicesNotFoundView() {
       return;
     }
 
-    setAndroidCreating(true);
-    const newestImage = getMax(
-      androidImages,
-      (image, currentNewestImage) => image.apiLevel > currentNewestImage.apiLevel
-    );
-    if (newestImage === undefined) {
-      openCreateNewDeviceModal();
-      return;
-    }
+    await withAndroidCreating(async () => {
+      const newestImage = getMax(
+        androidImages,
+        (image, currentNewestImage) => image.apiLevel > currentNewestImage.apiLevel
+      );
+      if (newestImage === undefined) {
+        openCreateNewDeviceModal();
+        return;
+      }
 
-    try {
       await deviceManager.createAndroidDevice(firstAndroidDeviceName, newestImage);
-    } finally {
-      setAndroidCreating(false);
-    }
+    });
   }
 
   async function createIOSDevice() {
@@ -88,18 +103,15 @@ function DevicesNotFoundView() {
       return;
     }
 
-    setIOSCreating(true);
-    const newestRuntime = findNewestIosRuntime(iOSRuntimes);
-    if (newestRuntime === undefined) {
-      openCreateNewDeviceModal();
-      return;
-    }
-    const iOSDeviceType = firstRuntimeSupportedDevice(newestRuntime.supportedDeviceTypes);
-    try {
+    await withIosCreating(async () => {
+      const newestRuntime = findNewestIosRuntime(iOSRuntimes);
+      if (newestRuntime === undefined) {
+        openCreateNewDeviceModal();
+        return;
+      }
+      const iOSDeviceType = firstRuntimeSupportedDevice(newestRuntime.supportedDeviceTypes);
       await deviceManager.createIOSDevice(iOSDeviceType!, newestRuntime);
-    } finally {
-      setIOSCreating(false);
-    }
+    });
   }
   return (
     <div className="devices-not-found-container">
@@ -111,10 +123,15 @@ function DevicesNotFoundView() {
         You can add a new device using the quick action below.
       </p>
       <div className="devices-not-found-button-group">
-        <Button type="ternary" className="devices-not-found-quick-action" onClick={createIOSDevice}>
-          {isIOSCreating && <VSCodeProgressRing className="devices-not-found-button-spinner" />}
-          Add iPhone
-        </Button>
+        {Platform.OS === "macos" && (
+          <Button
+            type="ternary"
+            className="devices-not-found-quick-action"
+            onClick={createIOSDevice}>
+            {isIOSCreating && <VSCodeProgressRing className="devices-not-found-button-spinner" />}
+            Add iPhone
+          </Button>
+        )}
 
         <Button
           type="ternary"

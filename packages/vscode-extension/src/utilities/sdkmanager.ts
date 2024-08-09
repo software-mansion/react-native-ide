@@ -4,7 +4,9 @@ import { exec } from "./subprocess";
 import { Logger } from "../Logger";
 import { AndroidSystemImageInfo } from "../common/DeviceManager";
 import { readdirSync, statSync } from "fs";
+import { getNativeABI } from "./common";
 export const SYSTEM_IMAGES_PATH = path.join(ANDROID_HOME, "system-images");
+import { Platform } from "./platform";
 
 const ACCEPTED_SYSTEM_IMAGES_TYPES = ["default", "google_apis_playstore", "google_apis"];
 
@@ -23,6 +25,8 @@ const ANDROID_CODENAMES_TO_API_LEVELS = {
 // Temporary solution due to sdkmanager not having information about android version.
 function mapApiLevelToAndroidVersion(apiLevel: number): number | undefined {
   switch (apiLevel) {
+    case 35:
+      return 15;
     case 34:
       return 14;
     case 33:
@@ -67,21 +71,18 @@ function recursiveSystemImagePathsSearch(
     results.push(...recursiveSystemImagePathsSearch(filePath, currentDepth + 1, maxDepth));
   }
 
-  return results.map((filepath) => filepath.replace(SYSTEM_IMAGES_PATH + "/", ""));
+  return results.map((filepath) => filepath.replace(SYSTEM_IMAGES_PATH + path.sep, ""));
 }
 
 export async function getAndroidSystemImages(): Promise<AndroidSystemImageInfo[]> {
   const filepaths = recursiveSystemImagePathsSearch(SYSTEM_IMAGES_PATH);
   const images = filepaths.map(mapToSystemImageInfo);
-  images.sort((a, b) => b.apiLevel - a.apiLevel);
-  // Temporary solution to limit the number of images, currently we want to show last 3 images
-  const latestImages = images.slice(0, 3);
-  return latestImages;
+  return images.sort((a, b) => b.apiLevel - a.apiLevel);
 }
 
 // example input: 'android-34/default/arm64-v8a/data'
 function mapToSystemImageInfo(systemImagePath: string) {
-  const [imageName, systemImageType, arch] = systemImagePath.split("/");
+  const [imageName, systemImageType, arch] = systemImagePath.split(path.sep);
   const apiLevelCode = imageName.split("-")[1];
   let apiLevel = parseInt(apiLevelCode);
   if (isNaN(apiLevel)) {
@@ -99,11 +100,18 @@ function mapToSystemImageInfo(systemImagePath: string) {
     apisSuffix = " with Google APIs";
   }
 
-  const name = `Android ${androidVersion} (API Level ${apiLevel}${apisSuffix})`;
+  const matchingSystemABI = arch === getNativeABI();
+  let abiInfoSuffix = "";
+  if (!matchingSystemABI) {
+    abiInfoSuffix = ` for ${arch}`;
+  }
+
+  const name = `Android ${androidVersion} (API Level ${apiLevel}${apisSuffix})${abiInfoSuffix}`;
   return {
     name,
     location: path.join(SYSTEM_IMAGES_PATH, imageName, systemImageType, arch),
     apiLevel,
+    available: matchingSystemABI,
   } as AndroidSystemImageInfo;
 }
 

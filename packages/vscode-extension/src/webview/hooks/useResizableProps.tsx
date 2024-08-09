@@ -63,6 +63,7 @@ export function useResizableProps({
       ...resizableStyle,
       display: phoneHeight === 0 ? "none" : "flex",
       alignItems: "center",
+      userSelect: "none",
     },
     handleStyles: {
       bottomRight: {

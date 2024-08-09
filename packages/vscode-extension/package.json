@@ -15,7 +15,7 @@
     "workspaceContains:app.config.js",
     "workspaceContains:app.config.ts"
   ],
-  "version": "0.0.15",
+  "version": "0.0.16",
   "engines": {
     "vscode": "^1.75.0",
     "os": "darwin"
@@ -68,6 +68,12 @@
         "command": "RNIDE.openDevMenu",
         "key": "ctrl+alt+z",
         "mac": "ctrl+cmd+z"
+      },
+      {
+        "command": "RNIDE.closeWithConfirmation",
+        "key": "ctrl+w",
+        "mac": "cmd+w",
+        "when": "RNIDE.isTabPanelFocused"
       }
     ],
     "configuration": {
@@ -236,18 +242,19 @@
     "build:extension-code": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify && cp ./node_modules/source-map/lib/mappings.wasm dist/.",
     "build:expo-fingerprint": "esbuild ./node_modules/@expo/fingerprint/build/sourcer/ExpoConfigLoader.js --bundle --format=cjs --outfile=dist/ExpoConfigLoader.js --platform=node --minify",
     "build:webview": "vite build --mode production && cp ./node_modules/@vscode/codicons/dist/codicon.* dist/.",
-    "build:sim-server-debug": "./scripts/build-sim-server.sh dist Debug",
-    "build:sim-server": "./scripts/build-sim-server.sh dist Release",
+    "build:sim-server-debug": "bash ./scripts/build-sim-server.sh dist Debug",
+    "build:sim-server": "bash ./scripts/build-sim-server.sh dist Release",
     "build:debug": "npm run build:extension-debug && npm run build:sim-server-debug",
     "build:dist": "npm run build:extension && npm run build:sim-server && npm run build:webview",
     "watch:extension": "vite",
     "package": "rm -rf dist/ && npm run build:dist",
     "lint": "eslint src --ext ts && yarn prettier --check src",
-    "format": "prettier --write --list-different src"
+    "format": "prettier --write --list-different src",
+    "build:tests": "tsc --project tsconfig.test.json",
+    "test": "npm run build:extension-code && npm run build:webview && npm run build:tests && vscode-test"
   },
   "devDependencies": {
     "@babel/preset-react": "^7.23.3",
-    "coordinate-parser": "^1.0.7",
     "@expo/fingerprint": "^0.5.0",
     "@expo/package-manager": "^1.1.2",
     "@msgpack/msgpack": "^2.8.0",
@@ -268,6 +275,7 @@
     "@types/plist": "^3.0.5",
     "@types/react": "^18.2.45",
     "@types/semver": "^7.5.8",
+    "@types/sinon": "^17.0.3",
     "@types/tar": "^6.1.11",
     "@types/uuid": "^9.0.7",
     "@types/vscode": "^1.46.0",
@@ -280,11 +288,14 @@
     "@vscode/debugadapter": "^1.51.0",
     "@vscode/debugprotocol": "^1.51.0",
     "@vscode/extension-telemetry": "^0.9.6",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^2.22.0",
     "@vscode/webview-ui-toolkit": "^1.3.1",
     "babel-loader": "^9.1.3",
     "chrome-remote-interface": "^0.33.0",
     "classnames": "^2.5.1",
+    "coordinate-parser": "^1.0.7",
     "esbuild": "^0.19.9",
     "eslint": "^7.19.0",
     "execa": "^5.1.1",
@@ -292,13 +303,16 @@
     "glob": "^7.1.6",
     "lodash": "^4.17.21",
     "minimatch": "^9.0.4",
+    "mocha": "^10.4.0",
     "node-fetch": "^2.7.0",
     "plist": "^3.1.0",
     "prettier": "^2.2.1",
     "re-resizable": "^6.9.16",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "rollup": "^4.18.1",
     "semver": "^7.6.2",
+    "sinon": "^18.0.0",
     "source-map": "^0.8.0-beta.0",
     "ts-loader": "^9.5.1",
     "typescript": "^4.1.3",

@@ -1,4 +1,4 @@
-export enum Platform {
+export enum DevicePlatform {
   IOS = "iOS",
   Android = "Android",
 }
@@ -7,7 +7,7 @@ export type DeviceInfo = AndroidDeviceInfo | IOSDeviceInfo;
 
 export type AndroidDeviceInfo = {
   id: string;
-  platform: Platform.Android;
+  platform: DevicePlatform.Android;
   avdId: string;
   name: string;
   systemName: string;
@@ -16,7 +16,7 @@ export type AndroidDeviceInfo = {
 
 export type IOSDeviceInfo = {
   id: string;
-  platform: Platform.IOS;
+  platform: DevicePlatform.IOS;
   UDID: string;
   name: string;
   systemName: string;
@@ -29,6 +29,7 @@ export type AndroidSystemImageInfo = {
   name: string;
   location: string;
   apiLevel: number;
+  available: boolean;
 };
 
 export type IOSDeviceTypeInfo = {
@@ -42,6 +43,7 @@ export type IOSRuntimeInfo = {
   name: string;
   version: string;
   supportedDeviceTypes: IOSDeviceTypeInfo[];
+  available: boolean;
 };
 
 export interface DeviceManagerEventMap {

@@ -93,6 +93,9 @@ export class DebugAdapter extends DebugSession {
       this.sendCDPMessage("Debugger.setAsyncCallStackDepth", { maxDepth: 32 });
       this.sendCDPMessage("Debugger.setBlackboxPatterns", { patterns: [] });
       this.sendCDPMessage("Runtime.runIfWaitingForDebugger", {});
+      this.sendCDPMessage("Runtime.evaluate", {
+        expression: "__RNIDE_onDebuggerConnected()",
+      });
     });
 
     this.connection.on("close", () => {

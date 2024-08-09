@@ -3,7 +3,7 @@ import { window } from "vscode";
 const outputChannel = window.createOutputChannel("React Native IDE", { log: true });
 
 const logger = {
-  log(message: string, ...args: any[]) {},
+  log(_message: string, ..._args: any[]) {},
 
   debug(message: string, ...args: any[]) {
     // in the initial phase od development, we want to surface debug messages such that
@@ -49,7 +49,7 @@ export function enableDevModeLogging() {
     };
   }
 
-  ["log", "debug", "info", "warn", "error"].forEach(wrapConsole);
+  (["log", "debug", "info", "warn", "error"] as const).forEach(wrapConsole);
 }
 
 export class Logger {

@@ -12,6 +12,11 @@ metroConfig.loadConfig = async function (...args) {
   return adaptMetroConfig(config);
 };
 
+// Furthermore, expo CLI also does override the reporter setting despite it being
+// set in the config. In order to force CLI to use JSON reporter, we override
+// base terminal reporter class from metro that Expo CLI extends
+overrideModuleFromAppDir("metro/src/lib/TerminalReporter", require("./metro_reporter"));
+
 // In addition, expo uses freeport-async to check whether provided port is busy.
 // Apparently, this module returns 11000 port when 0 is provided, so we need to
 // override this behavior here.

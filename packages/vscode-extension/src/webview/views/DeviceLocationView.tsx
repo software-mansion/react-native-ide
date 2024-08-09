@@ -5,7 +5,7 @@ import Label from "../components/shared/Label";
 import * as Switch from "@radix-ui/react-switch";
 import CoordinateParser from "coordinate-parser";
 import Tooltip from "../components/shared/Tooltip";
-import { throttle } from "../../common/utils";
+import { throttle } from "../../utilities/throttle";
 
 const CoordinateInfo = () => {
   return (

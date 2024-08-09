@@ -10,7 +10,16 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowJs": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
   },
-  "exclude": ["node_modules", ".vscode-test", "out", "lib", "webpack.config.js"]
+  "exclude": [
+    "node_modules/**/*",
+    "lib/**/*",
+    "out/**/*",
+    "dist/**/*",
+    ".vscode-test",
+    "webpack.config.js",
+    ".vscode-test",
+    "vite.config.js"
+  ]
 }

@@ -2,6 +2,7 @@ import { ExtensionContext, ExtensionMode, Webview, Uri, extensions } from "vscod
 import { getUri } from "../utilities/getUri";
 import { getNonce } from "../utilities/getNonce";
 import { getDevServerScriptUrl } from "../utilities/common";
+import { Platform } from "../utilities/platform";
 
 const VITE_DEV_HOST = "localhost:2137";
 
@@ -60,6 +61,7 @@ export function generateWebviewContent(
       </head>
       <body>
         <div id="root"></div>
+        <script>window.RNIDE_hostOS = "${Platform.OS}";</script>
         <script type="module" nonce="${nonce}" src="${scriptUri}" />
       </body>
     </html>

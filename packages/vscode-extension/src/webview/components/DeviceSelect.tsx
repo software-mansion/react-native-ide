@@ -1,6 +1,6 @@
 import React, { PropsWithChildren } from "react";
 import * as Select from "@radix-ui/react-select";
-import { DeviceInfo, Platform } from "../../common/DeviceManager";
+import { DeviceInfo, DevicePlatform } from "../../common/DeviceManager";
 import "./DeviceSelect.css";
 import "./shared/Dropdown.css";
 import Tooltip from "./shared/Tooltip";
@@ -59,10 +59,10 @@ interface DeviceSelectProps {
 
 function DeviceSelect({ onValueChange, devices, value, label, disabled }: DeviceSelectProps) {
   const iOSDevices = devices.filter(
-    ({ platform, name }) => platform === Platform.IOS && name.length > 0
+    ({ platform, name }) => platform === DevicePlatform.IOS && name.length > 0
   );
   const androidDevices = devices.filter(
-    ({ platform, name }) => platform === Platform.Android && name.length > 0
+    ({ platform, name }) => platform === DevicePlatform.Android && name.length > 0
   );
 
   function renderIosDevices() {

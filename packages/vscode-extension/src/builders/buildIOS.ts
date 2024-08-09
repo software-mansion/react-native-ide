@@ -2,8 +2,6 @@ import { RelativePattern, workspace, Uri, OutputChannel } from "vscode";
 import { exec, lineReader } from "../utilities/subprocess";
 import { Logger } from "../Logger";
 import path from "path";
-import { checkIosDependenciesInstalled } from "../dependency/DependencyChecker";
-import { installIOSDependencies } from "../dependency/DependencyInstaller";
 import { CancelToken } from "./BuildManager";
 import { BuildIOSProgressProcessor } from "./BuildIOSProgressProcessor";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
@@ -13,9 +11,8 @@ import {
   listSimulators,
   removeIosSimulator,
 } from "../devices/IosSimulatorDevice";
-import { IOSDeviceInfo, Platform } from "../common/DeviceManager";
+import { IOSDeviceInfo, DevicePlatform } from "../common/DeviceManager";
 import { EXPO_GO_BUNDLE_ID, downloadExpoGo, isExpoGoProject } from "./expoGo";
-
 type IOSProjectInfo =
   | {
       workspaceLocation: string;
@@ -44,7 +41,19 @@ async function getBundleID(appPath: string) {
 }
 
 export async function findXcodeProject(appRootFolder: string) {
+  function getParentDirectory(filePath: Uri) {
+    return Uri.joinPath(filePath, "..").fsPath;
+  }
+
+  function inSameDirectory(file1: Uri, file2: Uri) {
+    const parentDirectory1 = getParentDirectory(file1);
+    const parentDirectory2 = getParentDirectory(file2);
+
+    return parentDirectory1 === parentDirectory2;
+  }
+
   const iosSourceDir = getIosSourceDir(appRootFolder);
+
   const xcworkspaceFiles = await workspace.findFiles(
     new RelativePattern(iosSourceDir, "**/*.xcworkspace/*"),
     "**/{node_modules,build,Pods,vendor,*.xcodeproj}/**",
@@ -52,10 +61,10 @@ export async function findXcodeProject(appRootFolder: string) {
   );
 
   let workspaceLocation: string | undefined;
-  if (xcworkspaceFiles.length === 1) {
-    workspaceLocation = Uri.joinPath(xcworkspaceFiles[0], "..").fsPath;
-  } else if (xcworkspaceFiles.length > 1) {
-    Logger.warn(`Found multiple XCode workspace files: ${xcworkspaceFiles.join()}`);
+  if (xcworkspaceFiles.length === 2 && !inSameDirectory(xcworkspaceFiles[0], xcworkspaceFiles[1])) {
+    Logger.warn(`Found multiple XCode workspace files: ${xcworkspaceFiles.join(", ")}`);
+  } else if (xcworkspaceFiles.length >= 1) {
+    workspaceLocation = getParentDirectory(xcworkspaceFiles[0]);
   }
 
   const xcodeprojFiles = await workspace.findFiles(
@@ -65,17 +74,17 @@ export async function findXcodeProject(appRootFolder: string) {
   );
 
   let xcodeprojLocation: string | undefined;
-  if (xcodeprojFiles.length === 1) {
-    xcodeprojLocation = Uri.joinPath(xcodeprojFiles[0], "..").fsPath;
-  } else if (xcodeprojFiles.length > 1) {
-    Logger.warn(`Found multiple XCode project files: ${xcodeprojFiles.join()}`);
+  if (xcodeprojFiles.length === 2 && !inSameDirectory(xcodeprojFiles[0], xcodeprojFiles[1])) {
+    Logger.warn(`Found multiple XCode project files: ${xcodeprojFiles.join(", ")}`);
+  } else if (xcodeprojFiles.length >= 1) {
+    xcodeprojLocation = getParentDirectory(xcodeprojFiles[0]);
   }
 
   if (xcodeprojLocation) {
     return {
       workspaceLocation,
       xcodeprojLocation,
-      isWorkspace: !!workspaceLocation,
+      isWorkspace: workspaceLocation !== undefined,
     } as IOSProjectInfo;
   }
 
@@ -107,7 +116,6 @@ function buildProject(
 
   return exec("xcodebuild", xcodebuildArgs, {
     env: {
-      ...process.env,
       ...getLaunchConfiguration().env,
       RCT_NO_LAUNCH_PACKAGER: "true",
     },
@@ -145,10 +153,16 @@ export async function buildIos(
   forceCleanBuild: boolean,
   cancelToken: CancelToken,
   outputChannel: OutputChannel,
-  progressListener: (newProgress: number) => void
+  progressListener: (newProgress: number) => void,
+  checkIosDependenciesInstalled: () => Promise<boolean>,
+  installPods: (
+    appRootFolder: string,
+    forceCleanBuild: boolean,
+    cancelToken: CancelToken
+  ) => Promise<void>
 ) {
   if (await isExpoGoProject()) {
-    const appPath = await downloadExpoGo(Platform.IOS, cancelToken);
+    const appPath = await downloadExpoGo(DevicePlatform.IOS, cancelToken);
     return { appPath, bundleID: EXPO_GO_BUNDLE_ID };
   }
 
@@ -156,7 +170,7 @@ export async function buildIos(
 
   const isPodsInstalled = await checkIosDependenciesInstalled();
   if (!isPodsInstalled) {
-    await cancelToken.adapt(installIOSDependencies(appRootFolder, forceCleanBuild));
+    await installPods(appRootFolder, forceCleanBuild, cancelToken);
   }
 
   const xcodeProject = await findXcodeProject(appRootFolder);

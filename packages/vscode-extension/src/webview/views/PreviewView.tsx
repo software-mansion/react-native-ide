@@ -18,9 +18,11 @@ import Button from "../components/shared/Button";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { ZoomLevelType } from "../../common/Project";
+import { useUtils } from "../providers/UtilsProvider";
 
 function PreviewView() {
   const { projectState, project } = useProject();
+  const { reportIssue } = useUtils();
 
   const [isInspecting, setIsInspecting] = useState(false);
   const zoomLevel = projectState.previewZoom ?? "Fit";
@@ -36,8 +38,8 @@ function PreviewView() {
   const { devices, finishedInitialLoad } = useDevices();
 
   const selectedDevice = projectState?.selectedDevice;
-
   const devicesNotFound = projectState !== undefined && devices.length === 0;
+  const isStarting = projectState.status === "starting";
 
   const { openModal } = useModal();
 
@@ -57,6 +59,12 @@ function PreviewView() {
       project.removeListener("log", incrementLogCounter);
     };
   }, []);
+
+  useEffect(() => {
+    if (isStarting) {
+      setLogCounter(0);
+    }
+  }, [setLogCounter, isStarting]);
 
   useEffect(() => {
     const disableInspectorOnEscape = (event: KeyboardEvent) => {
@@ -95,27 +103,6 @@ function PreviewView() {
   return (
     <div className="panel-view">
       <div className="button-group-top">
-        <IconButton
-          tooltip={{
-            label: "Follow active editor on the device",
-            side: "bottom",
-          }}
-          active={isFollowing}
-          onClick={() => {
-            vscode.postMessage({
-              command: isFollowing ? "stopFollowing" : "startFollowing",
-            });
-            setIsFollowing(!isFollowing);
-          }}
-          disabled={
-            devicesNotFound ||
-            true /* for the time being we are disabling this functionality as it incurs some performance overhead we didn't yet have time to investigate */
-          }>
-          <span className="codicon codicon-magnet" />
-        </IconButton>
-
-        <span className="group-separator" />
-
         <UrlBar project={project} disabled={devicesNotFound} />
 
         <div className="spacer" />
@@ -180,7 +167,7 @@ function PreviewView() {
         />
 
         <div className="spacer" />
-        <Button className="feedback-button" onClick={() => project.reportIssue()}>
+        <Button className="feedback-button" onClick={() => reportIssue()}>
           {extensionVersion || "Beta"}: Report issue
         </Button>
         <DeviceSettingsDropdown disabled={devicesNotFound}>

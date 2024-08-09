@@ -25,11 +25,10 @@ const faqs = [
   },
   {
     topic: "When are you planning to close the public Beta?",
-    answer: "At the end of Q3 2024.",
+    answer: "We're aiming to close the beta in October 2024.",
   },
-
   {
-    topic: "Why did you open-source the project?",
+    topic: "Why did you make the source code public?",
     answer:
       "We are well aware there are an infinite number of ways of setting up your React Native project. With access to the code you can adjust the React Native IDE to make it run with your codebase.",
   },
@@ -42,6 +41,15 @@ It's okay to modify the code to run in your project and to fix bugs. However, do
     topic: "Is WebStorm supported?",
     answer:
       "At this moment WebStorm is not supported.<br/><br/>As the adoption for the extension grows we might add a support for WebStorm in the future.",
+  },
+  {
+    topic: "How does the Supporter's license discount works?",
+    answer:
+      "For every month your Supporter's license is active, you receive a 50% discount on the Individual or Team license. For example, if you have been a Supporter for 2 months, you will receive a 50% discount on an Individual or Team license for 2 months.",
+  },
+  {
+    topic: "How do I cancel the subscription?",
+    answer: `You can cancel your subscription at any time. To do so, click the "cancel your subscription" link in the email you received after purchase or visit <a href="https://paddle.net" target="_blank">paddle.net</a> to manage your subscription. If you have problems canceling your subscription, please contact us at ide@swmansion.com.`,
   },
 ];
 

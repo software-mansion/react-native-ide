@@ -13,8 +13,10 @@ function useRouterPluginMainHook({ onNavigationChange }) {
     store.routeInfoSnapshot,
     store.routeInfoSnapshot
   );
+
   const pathname = routeInfo?.pathname;
   const params = routeInfo?.params;
+
   useEffect(() => {
     onNavigationChange({
       name: pathname,
@@ -23,6 +25,11 @@ function useRouterPluginMainHook({ onNavigationChange }) {
       id: computeRouteIdentifier(pathname, params),
     });
   }, [pathname, params]);
+
+  function requestNavigationChange({ pathname, params }) {
+    router.push(pathname, params);
+  }
+
   return {
     getCurrentNavigationDescriptor: () => {
       const snapshot = store.routeInfoSnapshot();
@@ -33,9 +40,16 @@ function useRouterPluginMainHook({ onNavigationChange }) {
         id: computeRouteIdentifier(snapshot.pathname, snapshot.params),
       };
     },
-    requestNavigationChange: ({ pathname, params }) => {
-      router.navigate(pathname);
-      router.setParams(params);
+    requestNavigationChange: (navigationDescriptor) => {
+      if (store.navigationRef?.isReady()) {
+        requestNavigationChange(navigationDescriptor);
+      } else {
+        const onReady = () => {
+          requestNavigationChange(navigationDescriptor);
+          store.navigationRef?.removeListener("state", onReady);
+        };
+        store.navigationRef?.addListener("state", onReady);
+      }
     },
   };
 }

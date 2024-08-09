@@ -105,7 +105,7 @@ async function pidFileStatus(pidFilePath: string) {
   return PidFileStatus.STALE;
 }
 
-function exists(filePath: string) {
+export function exists(filePath: string) {
   return new Promise<boolean>((resolve, reject) => {
     fs.stat(filePath, (err, _stats) => {
       if (err === null) {
@@ -119,7 +119,7 @@ function exists(filePath: string) {
   });
 }
 
-function readFile(filePath: string) {
+export function readFile(filePath: string) {
   return new Promise<string>((resolve, reject) => {
     fs.readFile(filePath, (err, data) => {
       if (err) {

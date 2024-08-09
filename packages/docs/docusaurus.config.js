@@ -89,12 +89,24 @@ const config = {
             to: "/refund-policy",
             label: "Refund Policy",
           },
+          {
+            to: "/purchase-terms",
+            label: "Purchase Terms",
+          },
+          {
+            to: "/supporter-terms",
+            label: "Supporter's License Terms",
+          },
         ],
         copyright: "All trademarks and copyrights belong to their respective owners.",
       },
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
+      },
+      announcementBar: {
+        id: `supporter-license-banner`,
+        content: `Supporter's License is now available! <a href="https://ide.swmansion.com/pricing">Learn more</a>`,
       },
       metadata: [
         {

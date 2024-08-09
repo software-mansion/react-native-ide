@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import IconButton from "../components/shared/IconButton";
 import DeviceRemovalConfirmation from "../components/DeviceRemovalConfirmation";
 import CreateDeviceView from "./CreateDeviceView";
-import { DeviceInfo, Platform } from "../../common/DeviceManager";
+import { DeviceInfo, DevicePlatform } from "../../common/DeviceManager";
 import { useDevices } from "../providers/DevicesProvider";
 import Tooltip from "../components/shared/Tooltip";
 import Label from "../components/shared/Label";
@@ -36,7 +36,7 @@ function DeviceRow({ deviceInfo, onDeviceDelete }: DeviceRowProps) {
       <IconButton
         tooltip={{
           label: `Remove device with it's ${
-            deviceInfo.platform === Platform.IOS ? "runtime." : "system image."
+            deviceInfo.platform === DevicePlatform.IOS ? "runtime." : "system image."
           }`,
           side: "bottom",
           type: "secondary",
@@ -59,8 +59,8 @@ function ManageDevicesView() {
     reload();
   }, []);
 
-  const androidDevices = devices.filter((device) => device.platform === Platform.Android);
-  const iosDevices = devices.filter((device) => device.platform === Platform.IOS);
+  const androidDevices = devices.filter((device) => device.platform === DevicePlatform.Android);
+  const iosDevices = devices.filter((device) => device.platform === DevicePlatform.IOS);
 
   const handleDeviceDelete = (device: DeviceInfo) => {
     setSelectedDevice(device);

@@ -1,6 +1,7 @@
 # Ignore everything
 *
 */**
+dist/tests/**
 
 # Allow needed files
 !dist/**

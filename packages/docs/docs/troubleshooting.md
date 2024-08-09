@@ -66,3 +66,9 @@ Here is what you can try when the extension got stuck on some errors:
 - Try closing and reopening extension panel
 - Check whether you can build and run app without the extension (using `expo` or `react-native-cli`)
 - Try restarting vscode ¯\\\_(ツ)\_/¯
+
+### -sec-num- Installing an older version of the IDE
+
+If you need to install an older version of an IDE, you can do so by navigating to the cogwheel menu next to the "install" button in the market place. 
+
+<img width="698" alt="download-older-version" src="/img/docs/marketplace_install_older_version.png"/>

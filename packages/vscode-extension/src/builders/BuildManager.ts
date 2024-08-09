@@ -4,22 +4,23 @@ import { buildAndroid } from "./buildAndroid";
 import { buildIos } from "./buildIOS";
 import fs from "fs";
 import { calculateMD5 } from "../utilities/common";
-import { DeviceInfo, IOSDeviceInfo, Platform } from "../common/DeviceManager";
+import { DeviceInfo, IOSDeviceInfo, DevicePlatform } from "../common/DeviceManager";
 import { extensionContext, getAppRootFolder } from "../utilities/extensionContext";
 import { exec } from "../utilities/subprocess";
 import { Disposable, OutputChannel, window } from "vscode";
+import { DependencyManager } from "../dependency/DependencyManager";
 
 const ANDROID_BUILD_CACHE_KEY = "android_build_cache";
 const IOS_BUILD_CACHE_KEY = "ios_build_cache";
 
 export type IOSBuildResult = {
-  platform: Platform.IOS;
+  platform: DevicePlatform.IOS;
   appPath: string;
   bundleID: string;
 };
 
 export type AndroidBuildResult = {
-  platform: Platform.Android;
+  platform: DevicePlatform.Android;
   apkPath: string;
   packageName: string;
 };
@@ -38,10 +39,10 @@ type IOSBuildCacheInfo = {
   buildResult: IOSBuildResult;
 };
 
-export async function didFingerprintChange(platform: Platform) {
+export async function didFingerprintChange(platform: DevicePlatform) {
   const newFingerprint = await generateWorkspaceFingerprint();
 
-  if (platform === Platform.IOS) {
+  if (platform === DevicePlatform.IOS) {
     const { fingerprint: iosFingerprint } =
       extensionContext.workspaceState.get<IOSBuildCacheInfo>(IOS_BUILD_CACHE_KEY) ?? {};
     return newFingerprint !== iosFingerprint;
@@ -89,6 +90,8 @@ class DisposableBuildImpl<R> implements DisposableBuild<R> {
 }
 
 export class BuildManager {
+  constructor(private readonly dependencyManager: DependencyManager) {}
+
   private buildOutputChannel: OutputChannel | undefined;
 
   public focusBuildOutput() {
@@ -100,7 +103,7 @@ export class BuildManager {
     forceCleanBuild: boolean,
     progressListener: (newProgress: number) => void
   ) {
-    if (deviceInfo.platform === Platform.Android) {
+    if (deviceInfo.platform === DevicePlatform.Android) {
       const cancelToken = new CancelToken();
       return new DisposableBuildImpl(
         this.startAndroidBuild(forceCleanBuild, cancelToken, progressListener),
@@ -165,7 +168,7 @@ export class BuildManager {
       this.buildOutputChannel,
       progressListener
     );
-    const buildResult: AndroidBuildResult = { ...build, platform: Platform.Android };
+    const buildResult: AndroidBuildResult = { ...build, platform: DevicePlatform.Android };
 
     // store build info in the cache
     const newBuildHash = await getAppHash(build.apkPath);
@@ -224,16 +227,22 @@ export class BuildManager {
       forceCleanBuild,
       cancelToken,
       this.buildOutputChannel,
-      progressListener
+      progressListener,
+      () => {
+        return this.dependencyManager.checkPodsInstalled();
+      },
+      (appRootFolder: string, cleanBuild: boolean, token: CancelToken) => {
+        return this.dependencyManager.installPods(appRootFolder, cleanBuild, token);
+      }
     );
-    const buildResult = { ...build, platform: Platform.IOS };
+    const buildResult = { ...build, platform: DevicePlatform.IOS };
 
     // store build info in the cache
     const newBuildHash = await getAppHash(build.appPath);
     const buildInfo = { fingerprint: newFingerprint, buildHash: newBuildHash, buildResult };
     extensionContext.workspaceState.update(IOS_BUILD_CACHE_KEY, buildInfo);
 
-    return { ...build, platform: Platform.IOS };
+    return { ...build, platform: DevicePlatform.IOS };
   }
 }
 

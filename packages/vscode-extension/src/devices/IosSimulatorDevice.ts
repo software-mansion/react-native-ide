@@ -4,16 +4,11 @@ import { Preview } from "./preview";
 import { Logger } from "../Logger";
 import { exec } from "../utilities/subprocess";
 import { getAvailableIosRuntimes } from "../utilities/iosRuntimes";
-import {
-  IOSDeviceInfo,
-  IOSDeviceTypeInfo,
-  IOSRuntimeInfo,
-  Platform,
-} from "../common/DeviceManager";
+import { IOSDeviceInfo, IOSRuntimeInfo, DevicePlatform } from "../common/DeviceManager";
 import { BuildResult, IOSBuildResult } from "../builders/BuildManager";
 import path from "path";
 import fs from "fs";
-import { DeviceSettings } from "../common/Project";
+import { AppPermissionType, DeviceSettings } from "../common/Project";
 import { EXPO_GO_BUNDLE_ID, fetchExpoLaunchDeeplink } from "../builders/expoGo";
 import { ExecaError } from "execa";
 
@@ -35,13 +30,28 @@ interface SimulatorData {
   devices: { [runtimeID: string]: SimulatorInfo[] };
 }
 
+type PrivacyServiceName =
+  | "all"
+  | "calendar"
+  | "contacts-limited"
+  | "contacts"
+  | "location"
+  | "location-always"
+  | "photos-add"
+  | "photos"
+  | "media-library"
+  | "microphone"
+  | "motion"
+  | "reminders"
+  | "siri";
+
 export class IosSimulatorDevice extends DeviceBase {
   constructor(private readonly deviceUDID: string) {
     super();
   }
 
-  public get platform(): Platform {
-    return Platform.IOS;
+  public get platform(): DevicePlatform {
+    return DevicePlatform.IOS;
   }
 
   get lockFilePath(): string {
@@ -111,6 +121,47 @@ export class IosSimulatorDevice extends DeviceBase {
         `${settings.location.latitude.toString()},${settings.location.longitude.toString()}`,
       ]);
     }
+  }
+
+  async changeBiometricAuthorizationEnrollment(biometricEnrollment: boolean) {
+    const deviceSetLocation = getOrCreateDeviceSet();
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-s",
+      "com.apple.BiometricKit.enrollmentChanged",
+      biometricEnrollment ? "1" : "0",
+    ]);
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-p",
+      "com.apple.BiometricKit.enrollmentChanged",
+    ]);
+  }
+
+  async sendBiometricAuthorization(match: number) {
+    const deviceSetLocation = getOrCreateDeviceSet();
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      deviceSetLocation,
+      "spawn",
+      this.deviceUDID,
+      "notifyutil",
+      "-p",
+      match
+        ? "com.apple.BiometricKit_Sim.fingerTouch.match"
+        : "com.apple.BiometricKit_Sim.fingerTouch.nomatch",
+    ]);
   }
 
   async configureMetroPort(bundleID: string, metroPort: number) {
@@ -211,7 +262,7 @@ export class IosSimulatorDevice extends DeviceBase {
   }
 
   async launchApp(build: IOSBuildResult, metroPort: number, devtoolsPort: number) {
-    if (build.platform !== Platform.IOS) {
+    if (build.platform !== DevicePlatform.IOS) {
       throw new Error("Invalid platform");
     }
     const deepLinkChoice = build.bundleID === EXPO_GO_BUNDLE_ID ? "expo-go" : "expo-dev-client";
@@ -225,7 +276,7 @@ export class IosSimulatorDevice extends DeviceBase {
   }
 
   async installApp(build: BuildResult, forceReinstall: boolean) {
-    if (build.platform !== Platform.IOS) {
+    if (build.platform !== DevicePlatform.IOS) {
       throw new Error("Invalid platform");
     }
     const deviceSetLocation = getOrCreateDeviceSet();
@@ -248,6 +299,24 @@ export class IosSimulatorDevice extends DeviceBase {
       this.deviceUDID,
       build.appPath,
     ]);
+  }
+
+  async resetAppPermissions(appPermission: AppPermissionType, build: BuildResult) {
+    if (build.platform !== DevicePlatform.IOS) {
+      throw new Error("Invalid platform");
+    }
+    const privacyServiceName: PrivacyServiceName = appPermission;
+    await exec("xcrun", [
+      "simctl",
+      "--set",
+      getOrCreateDeviceSet(),
+      "privacy",
+      this.deviceUDID,
+      "reset",
+      privacyServiceName,
+      build.bundleID,
+    ]);
+    return false;
   }
 
   makePreview(): Preview {
@@ -307,7 +376,7 @@ export async function listSimulators(
       return devices.map((device) => {
         return {
           id: `ios-${device.udid}`,
-          platform: Platform.IOS as const,
+          platform: DevicePlatform.IOS as const,
           UDID: device.udid,
           name: device.name,
           systemName: runtime?.name ?? "Unknown",
@@ -353,7 +422,7 @@ export async function createSimulator(
 
   return {
     id: `ios-${UDID}`,
-    platform: Platform.IOS,
+    platform: DevicePlatform.IOS,
     UDID,
     name: deviceName,
     systemName: runtime.name,

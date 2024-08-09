@@ -1,22 +1,14 @@
-import {
-  Disposable,
-  debug,
-  commands,
-  workspace,
-  FileSystemWatcher,
-  window,
-  env,
-  Uri,
-} from "vscode";
+import { Disposable, debug, commands, workspace, FileSystemWatcher, window } from "vscode";
 import { Metro, MetroDelegate } from "./metro";
 import { Devtools } from "./devtools";
 import { DeviceSession } from "./deviceSession";
 import { Logger } from "../Logger";
 import { BuildManager, didFingerprintChange } from "../builders/BuildManager";
 import { DeviceAlreadyUsedError, DeviceManager } from "../devices/DeviceManager";
-import { DeviceInfo } from "../common/DeviceManager";
-import { throttle } from "../common/utils";
+import { DeviceInfo, DevicePlatform } from "../common/DeviceManager";
 import {
+  AppPermissionType,
+  BiometricEnrolment,
   DeviceSettings,
   InspectData,
   ProjectEventListener,
@@ -24,17 +16,20 @@ import {
   ProjectInterface,
   ProjectState,
   StartupMessage,
+  ZoomLevelType,
 } from "../common/Project";
 import { EventEmitter } from "stream";
-import { openFileAtPosition } from "../utilities/openFileAtPosition";
 import { extensionContext } from "../utilities/extensionContext";
 import stripAnsi from "strip-ansi";
 import { minimatch } from "minimatch";
 import { IosSimulatorDevice } from "../devices/IosSimulatorDevice";
 import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
-import { ZoomLevelType } from "../webview/components/ZoomControls";
+import { DependencyManager } from "../dependency/DependencyManager";
+import { throttle } from "../utilities/throttle";
+import { Platform } from "../utilities/platform";
 
-const DEVICE_SETTINGS_KEY = "device_settings";
+const DEVICE_SETTINGS_KEY = "device_settings_v3";
+const BIOMETRIC_ENROLLMENT_KEY = "biometric_enrollment";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
 const PREVIEW_ZOOM_KEY = "preview_zoom";
 
@@ -44,10 +39,10 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   private metro: Metro;
   private devtools = new Devtools();
   private debugSessionListener: Disposable | undefined;
-  private buildManager = new BuildManager();
+  private buildManager: BuildManager;
   private eventEmitter = new EventEmitter();
 
-  private nativeFilesChangedSinceLastBuild: boolean;
+  private detectedFingerprintChange: boolean;
   private workspaceWatcher!: FileSystemWatcher;
   private fileSaveWatcherDisposable!: Disposable;
 
@@ -68,24 +63,44 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     location: {
       latitude: 50.048653,
       longitude: 19.965474,
-      isDisabled: false,
+      isDisabled: true,
     },
   };
 
-  constructor(private readonly deviceManager: DeviceManager) {
+  private biometricEnrollment: BiometricEnrolment = extensionContext.workspaceState.get(
+    BIOMETRIC_ENROLLMENT_KEY
+  ) ?? {
+    android: false,
+    ios: false,
+  };
+
+  constructor(
+    private readonly deviceManager: DeviceManager,
+    private readonly dependencyManager: DependencyManager
+  ) {
     Project.currentProject = this;
+    this.deviceSettings = extensionContext.workspaceState.get(DEVICE_SETTINGS_KEY) ?? {
+      appearance: "dark",
+      contentSize: "normal",
+      location: {
+        latitude: 50.048653,
+        longitude: 19.965474,
+        isDisabled: false,
+      },
+    };
+    this.biometricEnrollment = extensionContext.workspaceState.get(BIOMETRIC_ENROLLMENT_KEY) ?? {
+      android: false,
+      ios: false,
+    };
+    this.devtools = new Devtools();
     this.metro = new Metro(this.devtools, this);
+    this.buildManager = new BuildManager(dependencyManager);
     this.start(false, false);
     this.trySelectingInitialDevice();
     this.deviceManager.addListener("deviceRemoved", this.removeDeviceListener);
-    this.nativeFilesChangedSinceLastBuild = false;
+    this.detectedFingerprintChange = false;
 
     this.trackNativeChanges();
-  }
-  async reportIssue() {
-    env.openExternal(
-      Uri.parse("https://github.com/software-mansion/react-native-ide/issues/new/choose")
-    );
   }
 
   trackNativeChanges() {
@@ -194,24 +209,56 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     this.metro?.reload();
   }
 
-  public async restart(forceCleanBuild: boolean) {
-    this.updateProjectState({ status: "starting", startupMessage: StartupMessage.Restarting });
-    if (forceCleanBuild || this.nativeFilesChangedSinceLastBuild) {
+  public async goHome() {
+    this.reloadMetro();
+  }
+
+  public async restart(forceCleanBuild: boolean, onlyReloadJSWhenPossible: boolean = true) {
+    // we save device info and device session at the start such that we can
+    // check if they weren't updated in the meantime while we await for restart
+    // procedures
+    const deviceInfo = this.projectState.selectedDevice!;
+    const deviceSession = this.deviceSession;
+
+    this.updateProjectStateForDevice(deviceInfo, {
+      status: "starting",
+      startupMessage: StartupMessage.Restarting,
+    });
+
+    if (forceCleanBuild) {
       await this.start(true, true);
-      await this.selectDevice(this.projectState.selectedDevice!, true);
-      this.nativeFilesChangedSinceLastBuild = false;
+      await this.selectDevice(deviceInfo, true);
+      return;
+    } else if (this.detectedFingerprintChange) {
+      await this.selectDevice(deviceInfo, false);
       return;
     }
 
-    // if we have an active device session, we try reloading metro
-    if (this.deviceSession?.isActive) {
+    // if we have an active devtools session, we try hot reloading
+    if (onlyReloadJSWhenPossible && this.devtools.hasConnectedClient) {
       this.reloadMetro();
       return;
     }
 
-    // otherwise we trigger selectDevice which should handle restarting the device, installing
-    // app and launching it
-    await this.selectDevice(this.projectState.selectedDevice!, false);
+    // otherwise we try to restart the device session
+    try {
+      // we first check if the device session hasn't changed in the meantime
+      if (deviceSession === this.deviceSession) {
+        await this.deviceSession?.restart((startupMessage) =>
+          this.updateProjectStateForDevice(deviceInfo, { startupMessage })
+        );
+        this.updateProjectStateForDevice(deviceInfo, {
+          status: "running",
+        });
+      }
+    } catch (e) {
+      // finally in case of any errors, we restart the selected device which reboots
+      // emulator etc...
+      // we first check if the device hasn't been updated in the meantime
+      if (deviceInfo === this.projectState.selectedDevice) {
+        await this.selectDevice(this.projectState.selectedDevice!, false);
+      }
+    }
   }
 
   private async start(restart: boolean, forceCleanBuild: boolean) {
@@ -249,6 +296,10 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           break;
       }
     });
+
+    Logger.debug("Installing Node Modules");
+    const installNodeModules = this.installNodeModules();
+
     Logger.debug(`Launching devtools`);
     const waitForDevtools = this.devtools.start();
 
@@ -279,20 +330,34 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
       forceCleanBuild,
       throttle((stageProgress: number) => {
         this.reportStageProgress(stageProgress, StartupMessage.WaitingForAppToLoad);
-      }, 100)
+      }, 100),
+      [installNodeModules]
     );
+  }
+
+  async resetAppPermissions(permissionType: AppPermissionType) {
+    const needsRestart = await this.deviceSession?.resetAppPermissions(permissionType);
+    if (needsRestart) {
+      this.restart(false, false);
+    }
   }
 
   public async dispatchTouch(xRatio: number, yRatio: number, type: "Up" | "Move" | "Down") {
     this.deviceSession?.sendTouch(xRatio, yRatio, type);
   }
 
-  public async dispatchKeyPress(keyCode: number, direction: "Up" | "Down") {
-    this.deviceSession?.sendKey(keyCode, direction);
+  public async dispatchMultiTouch(
+    xRatio: number,
+    yRatio: number,
+    xAnchorRatio: number,
+    yAnchorRatio: number,
+    type: "Up" | "Move" | "Down"
+  ) {
+    this.deviceSession?.sendMultiTouch(xRatio, yRatio, xAnchorRatio, yAnchorRatio, type);
   }
 
-  public async openFileAt(filePath: string, line0Based: number, column0Based: number) {
-    openFileAtPosition(filePath, line0Based, column0Based);
+  public async dispatchKeyPress(keyCode: number, direction: "Up" | "Down") {
+    this.deviceSession?.sendKey(keyCode, direction);
   }
 
   public async inspectElementAt(
@@ -356,10 +421,6 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     await this.deviceSession?.openDevMenu();
   }
 
-  public movePanelToNewWindow() {
-    commands.executeCommand("workbench.action.moveEditorToNewWindow");
-  }
-
   public startPreview(appKey: string) {
     this.deviceSession?.startPreview(appKey);
   }
@@ -372,11 +433,45 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
     return this.deviceSettings;
   }
 
+  public async getBiometricEnrollment() {
+    return this.biometricEnrollment;
+  }
+
   public async updateDeviceSettings(settings: DeviceSettings) {
+    await this.deviceSession?.changeDeviceSettings(settings);
     this.deviceSettings = settings;
     extensionContext.workspaceState.update(DEVICE_SETTINGS_KEY, settings);
-    await this.deviceSession?.changeDeviceSettings(settings);
     this.eventEmitter.emit("deviceSettingsChanged", this.deviceSettings);
+  }
+
+  public async toggleBiometricEnrollment() {
+    if (this.projectState.selectedDevice?.platform === DevicePlatform.Android) {
+      this.biometricEnrollment = {
+        ...this.biometricEnrollment,
+        android: !this.biometricEnrollment.android,
+      };
+      extensionContext.workspaceState.update(BIOMETRIC_ENROLLMENT_KEY, this.biometricEnrollment);
+      this.eventEmitter.emit("biometricEnrollmentChanged", this.biometricEnrollment);
+
+      this.deviceSession?.changeBiometricAuthorizationEnrollment(true);
+      // here the logic of "do it yourself"
+    } else {
+      Logger.debug("Frytki", this.biometricEnrollment);
+      this.biometricEnrollment = {
+        ...this.biometricEnrollment,
+        ios: !this.biometricEnrollment.ios,
+      };
+      extensionContext.workspaceState.update(BIOMETRIC_ENROLLMENT_KEY, this.biometricEnrollment);
+      Logger.debug("Frytki", this.biometricEnrollment);
+      await this.deviceSession?.changeBiometricAuthorizationEnrollment(
+        !this.biometricEnrollment.ios
+      );
+      this.eventEmitter.emit("biometricEnrollmentChanged", this.biometricEnrollment);
+    }
+  }
+
+  public async sendBiometricAuthorization(match: number) {
+    await this.deviceSession?.sendBiometricAuthorization(match);
   }
 
   private reportStageProgress(stageProgress: number, stage: string) {
@@ -405,6 +500,15 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   public async updatePreviewZoomLevel(zoom: ZoomLevelType): Promise<void> {
     this.updateProjectState({ previewZoom: zoom });
     extensionContext.workspaceState.update(PREVIEW_ZOOM_KEY, zoom);
+  }
+
+  private async installNodeModules(): Promise<void> {
+    const nodeModulesStatus = await this.dependencyManager.checkNodeModulesInstalled();
+
+    if (!nodeModulesStatus.installed) {
+      await this.dependencyManager.installNodeModules(nodeModulesStatus.packageManager);
+    }
+    Logger.debug("Node Modules installed");
   }
 
   public async selectDevice(deviceInfo: DeviceInfo, forceCleanBuild = false) {
@@ -457,6 +561,14 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
           this.reportStageProgress(stageProgress, StartupMessage.Building);
         }, 100)
       );
+
+      // reset fingerpring change flag when build finishes successfully
+      if (this.detectedFingerprintChange) {
+        build.build.then(() => {
+          this.detectedFingerprintChange = false;
+        });
+      }
+
       Logger.debug("Metro & devtools ready");
       newDeviceSession = new DeviceSession(device, this.devtools, this.metro, build);
       this.deviceSession = newDeviceSession;
@@ -485,18 +597,21 @@ export class Project implements Disposable, MetroDelegate, ProjectInterface {
   }
 
   // used in callbacks, needs to be an arrow function
-  private removeDeviceListener = async (_devices: DeviceInfo) => {
-    await this.trySelectingInitialDevice();
+  private removeDeviceListener = async (device: DeviceInfo) => {
+    if (this.projectState.selectedDevice?.id === device.id) {
+      this.updateProjectState({ status: "starting" });
+      await this.trySelectingInitialDevice();
+    }
   };
 
   private checkIfNativeChanged = throttle(async () => {
-    if (!this.nativeFilesChangedSinceLastBuild && this.projectState.selectedDevice) {
+    if (!this.detectedFingerprintChange && this.projectState.selectedDevice) {
       if (await didFingerprintChange(this.projectState.selectedDevice.platform)) {
-        this.nativeFilesChangedSinceLastBuild = true;
+        this.detectedFingerprintChange = true;
         this.eventEmitter.emit("needsNativeRebuild");
       }
     }
-  }, 100);
+  }, 300);
 }
 
 export function isAppSourceFile(filePath: string) {

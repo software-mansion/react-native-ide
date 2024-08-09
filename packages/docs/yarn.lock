@@ -2142,6 +2142,11 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@paddle/paddle-js@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@paddle/paddle-js/-/paddle-js-1.1.1.tgz#5a8f5c378ef06617efb7cae35ea49f74bf3d3458"
+  integrity sha512-ZMEqgNjIJzJIEJBcnqsGdPmXG1P9mPcZ4wsQwSNz0rBNntYH1erqjFr99Pg4V8CHf/Io0msNDkX3oG6xwlcO/A==
+
 "@polka/url@^1.0.0-next.24":
   version "1.0.0-next.25"
   resolved "https://registry.yarnpkg.com/@polka/url/-/url-1.0.0-next.25.tgz#f077fdc0b5d0078d30893396ff4827a13f99e817"
@@ -2294,10 +2299,10 @@
     "@svgr/plugin-jsx" "^6.5.1"
     "@svgr/plugin-svgo" "^6.5.1"
 
-"@swmansion/t-rex-ui@^0.0.10":
-  version "0.0.10"
-  resolved "https://registry.npmjs.org/@swmansion/t-rex-ui/-/t-rex-ui-0.0.10.tgz#21b13f9ec674f94df41995e5a50467f1fc637a93"
-  integrity sha512-pQnlmG1pFC8R5IXGtqQp9yWV1Oa2X3+PcInAY2SjctFGhlIUPIR1bynEOq+LATFvf1LPv1++AGLpqJOxyBzdVg==
+"@swmansion/t-rex-ui@^0.0.12":
+  version "0.0.12"
+  resolved "https://registry.npmjs.org/@swmansion/t-rex-ui/-/t-rex-ui-0.0.12.tgz#fffdc8a222773fb77019d188a60dd60decbe8ddf"
+  integrity sha512-l2gtWH6Z9CVl1GoZoypkcMM0mYBShOBvE13ct40sKc7LwqKtFv+PCrdYwMbGcd2kj95fhG7dTyueZW2pMP6R1w==
   dependencies:
     "@docsearch/react" "^3.6.0"
     "@docusaurus/core" "^2.4.3"

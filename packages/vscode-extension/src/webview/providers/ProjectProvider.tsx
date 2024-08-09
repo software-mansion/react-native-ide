@@ -1,6 +1,12 @@
 import { PropsWithChildren, useContext, createContext, useState, useEffect } from "react";
 import { makeProxy } from "../utilities/rpc";
-import { DeviceSettings, ProjectInterface, ProjectState } from "../../common/Project";
+import {
+  BiometricEnrolment,
+  DeviceSettings,
+  ProjectInterface,
+  ProjectState,
+} from "../../common/Project";
+import { DevicePlatform } from "../../common/DeviceManager";
 
 const project = makeProxy<ProjectInterface>("Project");
 
@@ -8,6 +14,7 @@ interface ProjectContextProps {
   projectState: ProjectState;
   deviceSettings: DeviceSettings;
   project: ProjectInterface;
+  biometricEnrollment: BiometricEnrolment;
 }
 
 const ProjectContext = createContext<ProjectContextProps>({
@@ -27,6 +34,7 @@ const ProjectContext = createContext<ProjectContextProps>({
     },
   },
   project,
+  biometricEnrollment: { android: false, ios: false },
 });
 
 export default function ProjectProvider({ children }: PropsWithChildren) {
@@ -46,9 +54,17 @@ export default function ProjectProvider({ children }: PropsWithChildren) {
     },
   });
 
+  const [biometricEnrollment, setBiometricEnrollment] = useState<BiometricEnrolment>({
+    android: false,
+    ios: false,
+  });
+
   useEffect(() => {
     project.getProjectState().then(setProjectState);
     project.addListener("projectStateChanged", setProjectState);
+
+    project.getBiometricEnrollment().then(setBiometricEnrollment);
+    project.addListener("biometricEnrollmentChanged", setBiometricEnrollment);
 
     project.getDeviceSettings().then(setDeviceSettings);
     project.addListener("deviceSettingsChanged", setDeviceSettings);
@@ -56,11 +72,12 @@ export default function ProjectProvider({ children }: PropsWithChildren) {
     return () => {
       project.removeListener("projectStateChanged", setProjectState);
       project.removeListener("deviceSettingsChanged", setDeviceSettings);
+      project.removeListener("biometricEnrollmentChanged", setBiometricEnrollment);
     };
   }, []);
 
   return (
-    <ProjectContext.Provider value={{ projectState, deviceSettings, project }}>
+    <ProjectContext.Provider value={{ projectState, deviceSettings, project, biometricEnrollment }}>
       {children}
     </ProjectContext.Provider>
   );
