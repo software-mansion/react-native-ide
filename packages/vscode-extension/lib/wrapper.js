@@ -77,9 +77,12 @@ export function PreviewAppWrapper({ children, initialProps, ..._rest }) {
 
   const handleNavigationChange = useCallback(
     (navigationDescriptor) => {
+      const queryParams = new URLSearchParams(navigationDescriptor.params).toString();
       navigationHistory.set(navigationDescriptor.id, navigationDescriptor);
       devtoolsAgent?._bridge.send("RNIDE_navigationChanged", {
-        displayName: navigationDescriptor.name,
+        displayName: `${navigationDescriptor.name}${
+          queryParams.length > 0 ? `?${queryParams}` : ""
+        }`,
         id: navigationDescriptor.id,
       });
     },

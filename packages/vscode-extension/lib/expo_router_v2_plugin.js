@@ -27,7 +27,8 @@ function useRouterPluginMainHook({ onNavigationChange }) {
   }, [pathname, params]);
 
   function requestNavigationChange({ pathname, params }) {
-    router.push(pathname, params);
+    router.push(pathname);
+    router.setParams(params);
   }
 
   return {
