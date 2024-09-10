@@ -272,6 +272,7 @@
     "build:webview": "vite build --mode production && cp ./node_modules/@vscode/codicons/dist/codicon.* dist/.",
     "build:sim-server-debug": "bash ./scripts/build-sim-server.sh dist Debug",
     "build:sim-server": "bash ./scripts/build-sim-server.sh dist Release",
+    "build:sim-server-windows": "./scripts/build-sim-server-win.ps1 dist",
     "build:debug": "npm run build:extension-debug && npm run build:sim-server-debug",
     "build:dist": "npm run build:extension && npm run build:sim-server && npm run build:webview",
     "watch:extension": "vite",
