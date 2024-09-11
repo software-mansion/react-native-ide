@@ -80,11 +80,12 @@ class MyBreakpoint extends Breakpoint {
 export class DebugAdapter extends DebugSession {
   private variableStore: VariableStore = new VariableStore();
   private connection: WebSocket;
+  private initialized = false;
   private absoluteProjectPath: string;
   private projectPathAlias?: string;
   private name: string;
   private threads: Array<Thread> = [];
-  private sourceMaps: Array<[string, string, SourceMapConsumer]> = [];
+  private sourceMaps: Array<[string, string, SourceMapConsumer | null]> = [];
 
   private linesStartAt1 = true;
   private columnsStartAt1 = true;
@@ -100,13 +101,13 @@ export class DebugAdapter extends DebugSession {
     this.connection = new WebSocket(configuration.websocketAddress);
 
     this.connection.on("open", () => {
-      this.sendCDPMessage("FuseboxClient.setClientMetadata", {});
+      // this.sendCDPMessage("FuseboxClient.setClientMetadata", {});
       this.sendCDPMessage("Runtime.enable", {});
       this.sendCDPMessage("Debugger.enable", { maxScriptsCacheSize: 100000000 });
       this.sendCDPMessage("Debugger.setPauseOnExceptions", { state: "none" });
-      this.sendCDPMessage("Debugger.setAsyncCallStackDepth", { maxDepth: 32 });
-      this.sendCDPMessage("Debugger.setBlackboxPatterns", { patterns: [] });
-      this.sendCDPMessage("Runtime.runIfWaitingForDebugger", {});
+      // this.sendCDPMessage("Debugger.setAsyncCallStackDepth", { maxDepth: 32 });
+      // this.sendCDPMessage("Debugger.setBlackboxPatterns", { patterns: [] });
+      // this.sendCDPMessage("Runtime.runIfWaitingForDebugger", {});
       this.sendCDPMessage("Runtime.evaluate", {
         expression: "__RNIDE_onDebuggerConnected()",
       });
@@ -118,6 +119,7 @@ export class DebugAdapter extends DebugSession {
 
     this.connection.on("message", async (data) => {
       const message = JSON.parse(data.toString());
+      console.log("MSG", this.name, message);
       if (message.result || message.error) {
         const messagePromise = this.cdpMessagePromises.get(message.id);
         this.cdpMessagePromises.delete(message.id);
@@ -147,9 +149,15 @@ export class DebugAdapter extends DebugSession {
             const consumer = await new SourceMapConsumer(sourceMap);
             this.sourceMaps.push([message.params.url, message.params.scriptId, consumer]);
             this.updateBreakpointsInSource(message.params.url, consumer);
+          } else {
+            this.sourceMaps.push([message.params.url, message.params.scriptId, null]);
+            this.updateBreakpointsInSource(message.params.url, null);
           }
 
-          this.sendEvent(new InitializedEvent());
+          if (!this.initialized) {
+            this.initialized = true;
+            this.sendEvent(new InitializedEvent());
+          }
           break;
         case "Debugger.paused":
           this.handleDebuggerPaused(message);
@@ -267,18 +275,24 @@ export class DebugAdapter extends DebugSession {
       // than localhost because it has a virtual network interface. Hence we need to unify the URL:
       if (id === scriptIdOrURL || compareIgnoringHost(url, scriptIdOrURL)) {
         scriptURL = url;
-        const pos = consumer.originalPositionFor({
-          line: lineNumber1Based,
-          column: columnNumber0Based,
-        });
-        if (pos.source != null) {
-          sourceURL = pos.source;
-        }
-        if (pos.line != null) {
-          sourceLine1Based = pos.line;
-        }
-        if (pos.column != null) {
-          sourceColumn0Based = pos.column;
+        if (consumer) {
+          const pos = consumer.originalPositionFor({
+            line: lineNumber1Based,
+            column: columnNumber0Based,
+          });
+          if (pos.source != null) {
+            sourceURL = pos.source;
+          }
+          if (pos.line != null) {
+            sourceLine1Based = pos.line;
+          }
+          if (pos.column != null) {
+            sourceColumn0Based = pos.column;
+          }
+        } else {
+          sourceURL = url;
+          sourceLine1Based = lineNumber1Based;
+          sourceColumn0Based = columnNumber0Based;
         }
       }
     });
@@ -436,23 +450,29 @@ export class DebugAdapter extends DebugSession {
     let position: NullablePosition = { line: null, column: null, lastColumn: null };
     let originalSourceURL: string = "";
     this.sourceMaps.forEach(([sourceURL, scriptId, consumer]) => {
-      const sources = [];
-      consumer.eachMapping((mapping) => {
-        sources.push(mapping.source);
-      });
-      const pos = consumer.generatedPositionFor({
-        source: genFileName,
-        line: lineNumber1Based,
-        column: columnNumber0Based,
-        bias: SourceMapConsumer.LEAST_UPPER_BOUND,
-      });
-      if (pos.line != null) {
-        originalSourceURL = sourceURL;
-        position = pos;
+      if (consumer) {
+        const sources = [];
+        consumer.eachMapping((mapping) => {
+          sources.push(mapping.source);
+        });
+        const pos = consumer.generatedPositionFor({
+          source: genFileName,
+          line: lineNumber1Based,
+          column: columnNumber0Based,
+          bias: SourceMapConsumer.LEAST_UPPER_BOUND,
+        });
+        if (pos.line != null) {
+          originalSourceURL = sourceURL;
+          position = pos;
+        }
       }
     });
     if (position.line === null) {
-      return null;
+      return {
+        source: file,
+        lineNumber1Based,
+        columnNumber0Based,
+      };
     }
     return {
       source: originalSourceURL,
@@ -480,12 +500,12 @@ export class DebugAdapter extends DebugSession {
 
   private breakpoints = new Map<string, Array<MyBreakpoint>>();
 
-  private updateBreakpointsInSource(sourceURL: string, consumer: SourceMapConsumer) {
+  private updateBreakpointsInSource(sourceURL: string, consumer: SourceMapConsumer | null) {
     // this method gets called after we are informed that a new script has been parsed. If we
     // had breakpoints set in that script, we need to let the runtime know about it
 
-    const pathsToUpdate = new Set<string>();
-    consumer.eachMapping((mapping) => {
+    const pathsToUpdate = new Set<string>([sourceURL]);
+    consumer?.eachMapping((mapping) => {
       if (this.breakpoints.has(mapping.source)) {
         pathsToUpdate.add(mapping.source);
       }

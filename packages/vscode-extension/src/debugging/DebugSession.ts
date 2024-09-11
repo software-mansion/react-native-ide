@@ -81,10 +81,10 @@ export class DebugSession implements Disposable {
           },
           {
             parentSession: this.vscSession,
-            // suppressDebugStatusbar: true,
-            // suppressDebugView: true,
-            // suppressDebugToolbar: true,
-            // suppressSaveBeforeStart: true,
+            suppressDebugStatusbar: true,
+            suppressDebugView: true,
+            suppressDebugToolbar: true,
+            suppressSaveBeforeStart: true,
           }
         );
       }
