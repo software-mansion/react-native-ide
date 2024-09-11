@@ -82,6 +82,7 @@ export class DebugAdapter extends DebugSession {
   private connection: WebSocket;
   private absoluteProjectPath: string;
   private projectPathAlias?: string;
+  private name: string;
   private threads: Array<Thread> = [];
   private sourceMaps: Array<[string, string, SourceMapConsumer]> = [];
 
@@ -93,6 +94,7 @@ export class DebugAdapter extends DebugSession {
 
   constructor(configuration: DebugConfiguration) {
     super();
+    this.name = configuration.name;
     this.absoluteProjectPath = configuration.absoluteProjectPath;
     this.projectPathAlias = configuration.projectPathAlias;
     this.connection = new WebSocket(configuration.websocketAddress);

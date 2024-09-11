@@ -42,8 +42,8 @@ export class DebugSession implements Disposable {
   }
 
   public async start() {
-    const websocketAddress = await this.metro.getDebuggerURL();
-    if (!websocketAddress) {
+    const cdpTargetInfo = await this.metro.getCDPTargetInfo();
+    if (!cdpTargetInfo) {
       return false;
     }
 
@@ -53,9 +53,9 @@ export class DebugSession implements Disposable {
         type: "com.swmansion.react-native-ide",
         name: "React Native IDE Debugger",
         request: "attach",
-        websocketAddress: websocketAddress,
+        websocketAddress: cdpTargetInfo.reactNativeDebuggerWsURL,
         absoluteProjectPath: getAppRootFolder(),
-        projectPathAlias: this.metro.isUsingNewDebugger ? "/[metro-project]" : undefined,
+        projectPathAlias: cdpTargetInfo.usesNewDebugger ? "/[metro-project]" : undefined,
       },
       {
         suppressDebugStatusbar: true,
@@ -67,6 +67,28 @@ export class DebugSession implements Disposable {
 
     if (debugStarted) {
       this.vscSession = debug.activeDebugSession!;
+
+      if (cdpTargetInfo.usesNewDebugger && cdpTargetInfo.reanimatedDebuggerWsURL) {
+        const reanimatedDebuggerStarted = await debug.startDebugging(
+          undefined,
+          {
+            type: "com.swmansion.react-native-ide",
+            name: "React Native IDE Debugger (reanimated)",
+            request: "attach",
+            websocketAddress: cdpTargetInfo.reanimatedDebuggerWsURL,
+            absoluteProjectPath: getAppRootFolder(),
+            // projectPathAlias: cdpTargetInfo.usesNewDebugger ? "/[metro-project]" : undefined,
+          },
+          {
+            parentSession: this.vscSession,
+            // suppressDebugStatusbar: true,
+            // suppressDebugView: true,
+            // suppressDebugToolbar: true,
+            // suppressSaveBeforeStart: true,
+          }
+        );
+      }
+
       return true;
     }
     return false;

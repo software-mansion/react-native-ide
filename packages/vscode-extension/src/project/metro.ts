@@ -13,6 +13,12 @@ export interface MetroDelegate {
   onIncrementalBundleError(message: string, errorModulePath: string): void;
 }
 
+export type MetroCDPTargetInfo = {
+  reactNativeDebuggerWsURL: string;
+  usesNewDebugger: boolean;
+  reanimatedDebuggerWsURL?: string;
+};
+
 interface CDPTargetDescription {
   id: string;
   title: string;
@@ -63,16 +69,8 @@ export class Metro implements Disposable {
   private subprocess?: ChildProcess;
   private _port = 0;
   private startPromise: Promise<void> | undefined;
-  private usesNewDebugger?: Boolean;
 
   constructor(private readonly devtools: Devtools, private readonly delegate: MetroDelegate) {}
-
-  public get isUsingNewDebugger() {
-    if (this.usesNewDebugger === undefined) {
-      throw new Error("Debugger is not yet initialized. Call getDebuggerURL first.");
-    }
-    return this.usesNewDebugger;
-  }
 
   public get port() {
     return this._port;
@@ -233,16 +231,16 @@ export class Metro implements Disposable {
     await appReady;
   }
 
-  public async getDebuggerURL() {
+  public async getCDPTargetInfo() {
     const WAIT_FOR_DEBUGGER_TIMEOUT_MS = 15_000;
 
     const startTime = Date.now();
-    let websocketAddress: string | undefined;
-    while (!websocketAddress && Date.now() - startTime < WAIT_FOR_DEBUGGER_TIMEOUT_MS) {
-      websocketAddress = await this.fetchDebuggerURL();
+    let cdpTargetInfo: MetroCDPTargetInfo | undefined;
+    while (!cdpTargetInfo && Date.now() - startTime < WAIT_FOR_DEBUGGER_TIMEOUT_MS) {
+      cdpTargetInfo = await this.fetchCDPTargetInfo();
       await new Promise((res) => setTimeout(res, 1000));
     }
-    return websocketAddress;
+    return cdpTargetInfo;
   }
 
   private lookupWsAddressForOldDebugger(listJson: CDPTargetDescription[]) {
@@ -282,12 +280,39 @@ export class Metro implements Disposable {
     // that that starts with "React Native Bridge" (which is the main runtime)
     for (const page of listJson) {
       if (page.reactNative && page.title.startsWith("React Native Bridge")) {
-        return page.webSocketDebuggerUrl;
+        // we search for Reanimated runtime matching logicalDeviceId (logical idenitfier for the device)
+        let reanimatedWsAddress: string | undefined;
+        for (const page2 of listJson) {
+          if (
+            page2.reactNative &&
+            page2.reactNative.logicalDeviceId === page.reactNative.logicalDeviceId &&
+            page2.title.startsWith("Reanimated")
+          ) {
+            reanimatedWsAddress = page2.webSocketDebuggerUrl;
+            break;
+          }
+        }
+        return [page.webSocketDebuggerUrl, reanimatedWsAddress];
       }
     }
+    return [undefined, undefined];
   }
 
-  private async fetchDebuggerURL() {
+  private ensureWsAddressIsLocal<T extends string | undefined>(websocketAddress: T) {
+    if (!websocketAddress) {
+      return undefined;
+    }
+    // Port and host in webSocketDebuggerUrl are set manually to match current metro address,
+    // because we always know what the correct one is and some versions of RN are sending out wrong port (0 or 8081)
+    const websocketDebuggerUrl = new URL(websocketAddress);
+    // replace port number with metro port number:
+    websocketDebuggerUrl.port = this._port.toString();
+    // replace host with localhost:
+    websocketDebuggerUrl.host = "localhost";
+    return websocketDebuggerUrl.toString();
+  }
+
+  private async fetchCDPTargetInfo() {
     // query list from http://localhost:${metroPort}/json/list
     const list = await fetch(`http://localhost:${this._port}/json/list`);
     const listJson = await list.json();
@@ -295,26 +320,25 @@ export class Metro implements Disposable {
     // we try using "new debugger" lookup first, and then switch to trying out
     // the old debugger connection (we can tell by the page naming scheme whether
     // it's the old or new debugger)
-    let websocketAddress = this.lookupWsAddressForNewDebugger(listJson);
-    if (websocketAddress) {
-      this.usesNewDebugger = true;
-    } else {
-      this.usesNewDebugger = false;
-      websocketAddress = this.lookupWsAddressForOldDebugger(listJson);
+    const [newDebuggerWsAddress, reanimatedDebuggerWsAddress] =
+      this.lookupWsAddressForNewDebugger(listJson);
+    if (newDebuggerWsAddress) {
+      return {
+        reactNativeDebuggerWsURL: this.ensureWsAddressIsLocal(newDebuggerWsAddress),
+        usesNewDebugger: true,
+        reanimatedDebuggerWsURL: this.ensureWsAddressIsLocal(reanimatedDebuggerWsAddress),
+      } as MetroCDPTargetInfo;
     }
 
-    if (websocketAddress) {
-      // Port and host in webSocketDebuggerUrl are set manually to match current metro address,
-      // because we always know what the correct one is and some versions of RN are sending out wrong port (0 or 8081)
-      const websocketDebuggerUrl = new URL(websocketAddress);
-      // replace port number with metro port number:
-      websocketDebuggerUrl.port = this._port.toString();
-      // replace host with localhost:
-      websocketDebuggerUrl.host = "localhost";
-      return websocketDebuggerUrl.toString();
+    const oldWebSocketAddress = this.lookupWsAddressForOldDebugger(listJson);
+    if (oldWebSocketAddress) {
+      return {
+        reactNativeDebuggerWsURL: this.ensureWsAddressIsLocal(oldWebSocketAddress),
+        usesNewDebugger: false,
+      } as MetroCDPTargetInfo;
     }
 
-    return undefined;
+    return null;
   }
 }
 

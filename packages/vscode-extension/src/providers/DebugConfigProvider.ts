@@ -4,7 +4,6 @@ import {
   DebugConfigurationProvider,
   ProviderResult,
   WorkspaceFolder,
-  debug,
 } from "vscode";
 
 export class DebugConfigProvider implements DebugConfigurationProvider {
@@ -16,7 +15,6 @@ export class DebugConfigProvider implements DebugConfigurationProvider {
     return {
       ...debugConfiguration,
       request: "attach",
-      name: "React Native Preview Debugger",
       websocketAddress: debugConfiguration.websocketAddress,
       internalConsoleOptions: "neverOpen",
     };
