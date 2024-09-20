@@ -29,6 +29,7 @@ import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { DependencyManager } from "../dependency/DependencyManager";
 import { throttle } from "../utilities/throttle";
 import { DebugSessionDelegate } from "../debugging/DebugSession";
+import { checkToken } from "../utilities/license";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v4";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -415,6 +416,13 @@ export class Project
   public async openDevMenu() {
     await this.deviceSession?.openDevMenu();
   }
+
+  public async isLicenseActivated() {
+    checkToken("");
+    return false;
+  }
+
+  public async activateLicense(licenseKey: string) {}
 
   public startPreview(appKey: string) {
     this.deviceSession?.startPreview(appKey);

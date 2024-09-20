@@ -20,9 +20,30 @@ import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { ZoomLevelType } from "../../common/Project";
 import { useUtils } from "../providers/UtilsProvider";
 
+function BottomButton() {
+  const { reportIssue } = useUtils();
+  const { isLicenseActivated, project } = useProject();
+  const extensionVersion = document.querySelector<HTMLMetaElement>(
+    "meta[name='radon-ide-version']"
+  )?.content;
+
+  if (!isLicenseActivated) {
+    return (
+      <Button className="feedback-button" onClick={() => reportIssue()}>
+        BUUUUUUUUUUUUUUUUUUU
+      </Button>
+    );
+  }
+
+  return (
+    <Button className="feedback-button" onClick={() => reportIssue()}>
+      {extensionVersion || "Beta"}: Report issue
+    </Button>
+  );
+}
+
 function PreviewView() {
   const { projectState, project } = useProject();
-  const { reportIssue } = useUtils();
 
   const [isInspecting, setIsInspecting] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
@@ -44,10 +65,6 @@ function PreviewView() {
   const { openModal } = useModal();
 
   useDiagnosticAlert(selectedDevice?.platform);
-
-  const extensionVersion = document.querySelector<HTMLMetaElement>(
-    "meta[name='radon-ide-version']"
-  )?.content;
 
   useEffect(() => {
     function incrementLogCounter() {
@@ -183,9 +200,7 @@ function PreviewView() {
         />
 
         <div className="spacer" />
-        <Button className="feedback-button" onClick={() => reportIssue()}>
-          {extensionVersion || "Beta"}: Report issue
-        </Button>
+        <BottomButton />
         <DeviceSettingsDropdown disabled={devicesNotFound}>
           <IconButton tooltip={{ label: "Device settings", type: "primary" }}>
             <DeviceSettingsIcon

@@ -102,6 +102,7 @@ export interface ProjectEventMap {
   log: { type: string };
   projectStateChanged: ProjectState;
   deviceSettingsChanged: DeviceSettings;
+  licenseActivatedChanged: boolean;
   navigationChanged: { displayName: string; id: string };
   needsNativeRebuild: void;
 }
@@ -131,6 +132,9 @@ export interface ProjectInterface {
   openDevMenu(): Promise<void>;
 
   resetAppPermissions(permissionType: AppPermissionType): Promise<void>;
+
+  isLicenseActivated(): Promise<boolean>;
+  activateLicense(licenseKey: string): Promise<void>;
 
   dispatchTouches(touches: Array<TouchPoint>, type: "Up" | "Move" | "Down"): Promise<void>;
   dispatchKeyPress(keyCode: number, direction: "Up" | "Down"): Promise<void>;
