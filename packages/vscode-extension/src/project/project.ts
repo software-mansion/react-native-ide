@@ -29,7 +29,7 @@ import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { DependencyManager } from "../dependency/DependencyManager";
 import { throttle } from "../utilities/throttle";
 import { DebugSessionDelegate } from "../debugging/DebugSession";
-import { checkToken } from "../utilities/license";
+import { activateDevice, checkToken } from "../utilities/license";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v4";
 const LAST_SELECTED_DEVICE_KEY = "last_selected_device";
@@ -418,11 +418,13 @@ export class Project
   }
 
   public async isLicenseActivated() {
-    checkToken();
-    return false;
+    return await checkToken();
   }
 
-  public async activateLicense(licenseKey: string) {}
+  public async activateLicense(licenseKey: string, username: string) {
+    Logger.debug("Frytki", "jestem tu", licenseKey, username);
+    return activateDevice(licenseKey, username);
+  }
 
   public startPreview(appKey: string) {
     this.deviceSession?.startPreview(appKey);

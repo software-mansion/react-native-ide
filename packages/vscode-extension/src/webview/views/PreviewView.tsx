@@ -19,17 +19,21 @@ import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { ZoomLevelType } from "../../common/Project";
 import { useUtils } from "../providers/UtilsProvider";
+import { ActivateLicenseView } from "./ActivateLicenseView";
 
 function BottomButton() {
   const { reportIssue } = useUtils();
-  const { isLicenseActivated, project } = useProject();
+  const { openModal } = useModal();
+  const { isLicenseActivated } = useProject();
   const extensionVersion = document.querySelector<HTMLMetaElement>(
     "meta[name='radon-ide-version']"
   )?.content;
 
   if (!isLicenseActivated) {
     return (
-      <Button className="feedback-button" onClick={() => reportIssue()}>
+      <Button
+        className="feedback-button"
+        onClick={() => openModal("Activate License", <ActivateLicenseView />)}>
         BUUUUUUUUUUUUUUUUUUU
       </Button>
     );

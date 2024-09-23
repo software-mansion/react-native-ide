@@ -420,10 +420,12 @@
     "execa": "^5.1.1",
     "file-loader": "^6.2.0",
     "glob": "^7.1.6",
+    "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "minimatch": "^9.0.4",
     "mocha": "^10.4.0",
     "node-fetch": "^2.7.0",
+    "node-machine-id": "^1.1.12",
     "plist": "^3.1.0",
     "prettier": "^2.2.1",
     "re-resizable": "^6.9.16",
@@ -440,8 +442,9 @@
     "vite": "^5.0.8",
     "vscode-test": "^1.5.0",
     "ws": "^8.14.2",
-    "xml2js": "^0.6.2",
-    "jsonwebtoken": "^9.0.2",
-    "node-machine-id": "^1.1.12"
+    "xml2js": "^0.6.2"
+  },
+  "dependencies": {
+    "react-hook-form": "^7.53.0"
   }
 }

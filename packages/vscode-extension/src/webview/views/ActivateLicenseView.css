@@ -1,0 +1,17 @@
+.container {
+  flex: 1;
+  gap: 15px;
+  align-items: center;
+}
+
+.license-input {
+  flex: 1;
+  height: 200px;
+  background-color: var(--swm-input-background);
+  border: 1px;
+  text-align: center;
+  font-size: 18px;
+  border-radius: 4px;
+  line-height: 1;
+  box-shadow: var(--swm-input-shadow);
+}

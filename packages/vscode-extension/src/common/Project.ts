@@ -134,7 +134,7 @@ export interface ProjectInterface {
   resetAppPermissions(permissionType: AppPermissionType): Promise<void>;
 
   isLicenseActivated(): Promise<boolean>;
-  activateLicense(licenseKey: string): Promise<void>;
+  activateLicense(licenseKey: string, username: string): Promise<boolean>;
 
   dispatchTouches(touches: Array<TouchPoint>, type: "Up" | "Move" | "Down"): Promise<void>;
   dispatchKeyPress(keyCode: number, direction: "Up" | "Down"): Promise<void>;
