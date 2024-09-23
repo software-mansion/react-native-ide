@@ -418,7 +418,7 @@ export class Project
   }
 
   public async isLicenseActivated() {
-    checkToken("");
+    checkToken();
     return false;
   }
 
