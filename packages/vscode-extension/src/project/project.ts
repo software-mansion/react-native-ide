@@ -422,7 +422,6 @@ export class Project
   }
 
   public async activateLicense(licenseKey: string, username: string) {
-    Logger.debug("Frytki", "jestem tu", licenseKey, username);
     return activateDevice(licenseKey, username);
   }
 

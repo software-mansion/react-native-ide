@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, MouseEvent } from "react";
-import { vscode } from "../utilities/vscode";
 import Preview from "../components/Preview";
 import IconButton from "../components/shared/IconButton";
 import UrlBar from "../components/UrlBar";
@@ -32,9 +31,9 @@ function BottomButton() {
   if (!isLicenseActivated) {
     return (
       <Button
-        className="feedback-button"
+        className="activate-license-button"
         onClick={() => openModal("Activate License", <ActivateLicenseView />)}>
-        BUUUUUUUUUUUUUUUUUUU
+        Activate License
       </Button>
     );
   }

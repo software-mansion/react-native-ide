@@ -17,11 +17,9 @@ export function ActivateLicenseView() {
 
   const onSubmit: SubmitHandler<FieldValues> = (e, data) => {
     setIsLoading(true);
-    console.log(data);
 
-    console.log("frytki", data?.target[0].value);
     const activationPromise = project.activateLicense(data?.target[0].value, "username");
-    console.log("frytki", activationPromise);
+
     activationPromise.then((success) => {
       if (success) {
         closeModal();

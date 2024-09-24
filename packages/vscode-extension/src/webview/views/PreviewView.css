@@ -15,6 +15,11 @@
   opacity: 0.5;
 }
 
+.activate-license-button {
+  color: red;
+  border: 1px solid red;
+}
+
 .button-group-bottom {
   margin-top: 8px;
 }
