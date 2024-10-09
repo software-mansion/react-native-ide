@@ -124,6 +124,7 @@ export async function buildAndroid(
     "-x",
     "lint",
     `-PreactNativeArchitectures=${getNativeABI()}`,
+    "-Dandroid.enableJetifier=false",
     ...(forceCleanBuild ? ["clean"] : []),
     makeBuildTaskName(productFlavor, buildType),
     "--init-script", // buildProgressEvaluation init script is used log build task count for build progress logging
