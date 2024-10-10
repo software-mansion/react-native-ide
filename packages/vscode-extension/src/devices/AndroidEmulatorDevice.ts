@@ -12,7 +12,7 @@ import { ChildProcess, exec, lineReader } from "../utilities/subprocess";
 import { BuildResult } from "../builders/BuildManager";
 import { AndroidSystemImageInfo, DeviceInfo, DevicePlatform } from "../common/DeviceManager";
 import { Logger } from "../Logger";
-import { AppPermissionType, DeviceSettings } from "../common/Project";
+import { AppPermissionType, DeviceSettings, Locale } from "../common/Project";
 import { getAndroidSystemImages } from "../utilities/sdkmanager";
 import { EXPO_GO_PACKAGE_NAME, fetchExpoLaunchDeeplink } from "../builders/expoGo";
 import { Platform } from "../utilities/platform";
@@ -78,7 +78,74 @@ export class AndroidEmulatorDevice extends DeviceBase {
     }, DISPOSE_TIMEOUT);
   }
 
+  private async shouldUpdateLocale(newLocale: Locale) {
+    const locale = newLocale.replace("_", "-");
+    const { stdout } = await exec(ADB_PATH, [
+      "-s",
+      this.serial!,
+      "shell",
+      "settings",
+      "get",
+      "system",
+      "system_locales",
+    ]);
+
+    // if user did not use the device before it might not have system_locales property
+    // as en-US is the default locale we assume that no value is the same as en-US
+    if ((stdout ?? "en-US") === locale) {
+      return false;
+    }
+    return true;
+  }
+
+  // this method changes device locale in two ways, firstly it modifies system_locales setting,
+  // which in most cases is enough, to change locale. Unfortunately if persist.sys.locale exist
+  // it will conflict with system_locales and make device behavior unpredictable. so in that case
+  // we would like to modify if as well. Unfortunately ass of right now we don't have a reliable
+  // method of doing that, because If the device uses google mobile services persist.sys.locale can not be changed,
+  // as it requires a root access persist.sys.locale is added to the device when a user changes locale
+  // in the settings.
+  // TODO:  Find a way to change or remove persist.sys.locale without root access. note: removing the whole
+  // data/property/persistent_properties file would also work as we persist device settings globally in Radon IDE
+  private async changeLocale(newLocale: Locale): Promise<void> {
+    const locale = newLocale.replace("_", "-");
+
+    await exec(ADB_PATH, [
+      "-s",
+      this.serial!,
+      "shell",
+      "settings",
+      "put",
+      "system",
+      "system_locales",
+      locale,
+    ]);
+
+    const { stdout } = await exec(ADB_PATH, [
+      "-s",
+      this.serial!,
+      "shell",
+      "getprop",
+      "persist.sys.locale",
+    ]);
+
+    // this is needed to make sure that changes will persist
+    await exec(ADB_PATH, ["shell", "sync"]);
+
+    if (stdout) {
+      Logger.warn(
+        "persist.sys.locale detected while changing locale. It might indicate that the user has changed locale settings in the settings application, which will prevent localization change."
+      );
+    }
+  }
+
   async changeSettings(settings: DeviceSettings) {
+    let shouldRestart = false;
+    if (await this.shouldUpdateLocale(settings.locale)) {
+      shouldRestart = true;
+      await this.changeLocale(settings.locale);
+    }
+
     await exec(ADB_PATH, [
       "-s",
       this.serial!,
@@ -125,10 +192,29 @@ export class AndroidEmulatorDevice extends DeviceBase {
         settings.location.latitude.toString(),
       ]);
     }
-    return false;
+    return shouldRestart;
   }
 
-  async bootDevice(settings: DeviceSettings) {
+  // it is necessary to use SIGTERM 9 as it would take to much time otherwise and would degrade user experience
+  // having said that use this function with caution only in scenarios when you are sure that no user data will be lost
+  private async forcefullyResetDevice() {
+    this.emulatorProcess?.kill(9);
+    await this.internalBootDevice();
+  }
+
+  async bootDevice(deviceSettings: DeviceSettings): Promise<void> {
+    // We have to initially boot the device because we use adb shell to change the devices locale
+    // alternative would be to use -change-locale option on the emulator, but that option restarts the device too
+    // the -change-locale option is not covering all cases read more about it in this.changeLocale
+    await this.internalBootDevice();
+
+    let shouldRestart = await this.changeSettings(deviceSettings);
+    if (shouldRestart) {
+      await this.forcefullyResetDevice();
+    }
+  }
+
+  async internalBootDevice() {
     // this prevents booting device with the same AVD twice
     await ensureOldEmulatorProcessExited(this.avdId);
 
@@ -143,6 +229,7 @@ export class AndroidEmulatorDevice extends DeviceBase {
         "-no-boot-anim",
         "-grpc-use-token",
         "-no-snapshot-save",
+        "-writable-system",
       ],
       { env: { ANDROID_AVD_HOME: avdDirectory } }
     );
@@ -171,8 +258,6 @@ export class AndroidEmulatorDevice extends DeviceBase {
     });
 
     this.serial = await initPromise;
-
-    await this.changeSettings(settings);
   }
 
   async configureExpoDevMenu(packageName: string) {

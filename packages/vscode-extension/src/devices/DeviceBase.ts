@@ -2,7 +2,7 @@ import fs from "fs";
 import { Disposable } from "vscode";
 import { Preview } from "./preview";
 import { BuildResult } from "../builders/BuildManager";
-import { AppPermissionType, DeviceSettings, TouchPoint, Locale } from "../common/Project";
+import { AppPermissionType, DeviceSettings, TouchPoint } from "../common/Project";
 import { DeviceInfo, DevicePlatform } from "../common/DeviceManager";
 import { tryAcquiringLock } from "../utilities/common";
 
