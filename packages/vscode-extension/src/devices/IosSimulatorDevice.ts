@@ -25,6 +25,7 @@ interface SimulatorInfo {
   booted?: boolean;
   lastBootedAt?: string;
   deviceTypeIdentifier: string;
+  dataPath?: string;
 }
 
 interface SimulatorData {
@@ -410,6 +411,33 @@ export async function removeIosRuntimes(runtimeIDs: string[]) {
   return Promise.all(removalPromises);
 }
 
+export async function renameIosSimulator(udid: string | undefined, newCustomName: string) {
+  if (!udid) {
+    return;
+  }
+
+  const deviceSetLocation = getOrCreateDeviceSet(udid);
+  const configPath = path.join(deviceSetLocation, udid, "config.ini");
+
+  try {
+    const oldConfig = await fs.promises.readFile(configPath, "utf-8");
+
+    const config = oldConfig
+      .split("\n")
+      .map((line) => {
+        if (line.startsWith("customName=")) {
+          return `customName=${newCustomName}`;
+        }
+        return line;
+      })
+      .join("\n");
+
+    await fs.promises.writeFile(configPath, config, "utf-8");
+  } catch (e) {
+    throw new Error(`Failed to rename device`);
+  }
+}
+
 export async function removeIosSimulator(udid: string | undefined, location: SimulatorDeviceSet) {
   if (!udid) {
     return;
@@ -446,6 +474,23 @@ async function listSimulatorsForLocation(location?: string) {
   return [];
 }
 
+async function findCustomName(filePath?: string): Promise<string | undefined> {
+  if (!filePath) {
+    return undefined;
+  }
+
+  try {
+    const content = await fs.promises.readFile(filePath, "utf-8");
+    return content
+      .split("\n")
+      .find((line) => line.startsWith("customName="))
+      ?.split("=")[1]
+      ?.trim();
+  } catch (e) {
+    return undefined;
+  }
+}
+
 export async function listSimulators(
   location: SimulatorDeviceSet = SimulatorDeviceSet.RN_IDE
 ): Promise<IOSDeviceInfo[]> {
@@ -465,26 +510,33 @@ export async function listSimulators(
 
   const runtimes = await getAvailableIosRuntimes();
 
-  const simulators = devicesPerRuntime
-    .map(([runtimeID, devices]) => {
+  const simulators = await Promise.all(
+    devicesPerRuntime.map(async ([runtimeID, devices]) => {
       const runtime = runtimes.find((item) => item.identifier === runtimeID);
 
-      return devices.map((device) => {
-        return {
-          id: `ios-${device.udid}`,
-          platform: DevicePlatform.IOS as const,
-          UDID: device.udid,
-          name: device.name,
-          systemName: runtime?.name ?? "Unknown",
-          available: device.isAvailable ?? false,
-          deviceIdentifier: device.deviceTypeIdentifier,
-          runtimeInfo: runtime!,
-        };
-      });
-    })
-    .flat();
+      const deviceInfos = await Promise.all(
+        devices.map(async (device) => {
+          const deviceDirectory = device.dataPath?.split(path.sep).slice(0, -1).join(path.sep);
+          const configFilePath = deviceDirectory ? path.join(deviceDirectory, "config.ini") : "";
+          const customName = await findCustomName(configFilePath);
 
-  return simulators;
+          return {
+            id: `ios-${device.udid}`,
+            platform: DevicePlatform.IOS as const,
+            UDID: device.udid,
+            name: device.name,
+            systemName: runtime?.name ?? "Unknown",
+            customName: customName,
+            available: device.isAvailable ?? false,
+            deviceIdentifier: device.deviceTypeIdentifier,
+            runtimeInfo: runtime!,
+          };
+        })
+      );
+      return deviceInfos;
+    })
+  );
+  return simulators.flat();
 }
 
 export enum SimulatorDeviceSet {
@@ -496,7 +548,8 @@ export async function createSimulator(
   deviceName: string,
   deviceIdentifier: string,
   runtime: IOSRuntimeInfo,
-  deviceSet: SimulatorDeviceSet
+  deviceSet: SimulatorDeviceSet,
+  customName?: string
 ) {
   Logger.debug(`Create simulator ${deviceIdentifier} with runtime ${runtime.identifier}`);
 
@@ -516,12 +569,18 @@ export async function createSimulator(
     runtime.identifier,
   ]);
 
+  const configPath = path.join(locationArgs[1], UDID, "config.ini");
+  const configData = [["customName", customName]];
+  const configContent = configData.map(([key, value]) => `${key}=${value}`).join("\n");
+  await fs.promises.writeFile(configPath, configContent, "utf-8");
+
   return {
     id: `ios-${UDID}`,
     platform: DevicePlatform.IOS,
     UDID,
     name: deviceName,
     systemName: runtime.name,
+    customName: customName,
     available: true, // assuming if create command went through, it's available
     deviceIdentifier: deviceIdentifier,
     runtimeInfo: runtime,

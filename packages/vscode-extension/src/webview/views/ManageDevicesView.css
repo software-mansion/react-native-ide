@@ -4,7 +4,7 @@
 }
 
 .container {
-  margin: 12px 0;
+  margin: 12px 0 0 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -16,13 +16,20 @@
 
 .device-row {
   display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  grid-template-columns: 32px 1fr 36px;
   align-items: center;
-  margin-bottom: 0 2px 4px 2px;
   gap: 10px;
   line-height: 1;
   height: 48px;
+  padding: 2px 25px 2px 2px;
+  border-radius: 6px;
 }
+
+.device-row:hover {
+  outline: none;
+  background-color: var(--swm-device-select-highlighted);
+}
+
 .device-label-row {
   display: flex;
   flex-grow: 1;
@@ -33,6 +40,8 @@
 .device-label {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  cursor: default;
 }
 .device-title {
   font-size: 14px;
@@ -46,7 +55,10 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.device-icon {
+.device-label:hover .device-subtitle {
+  white-space: normal;
+}
+.device-icon, .device-icon-selected {
   width: 32px;
   height: 32px;
   display: flex;
@@ -56,6 +68,15 @@
   color: var(--swm-device-icon);
   background-color: var(--swm-device-icon-background);
 }
+.device-icon-selected {
+  color: var(--swm-device-icon);
+  background-color: var(--swm-device-icon-background-selected);
+}
+.device-button-group {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
 
 .warning {
   color: var(--swm-device-warning-icon) !important;
@@ -63,6 +84,7 @@
 
 .create-button {
   margin: 16px auto 0;
+  margin-bottom: 2px;
 }
 
 .create-button-text {

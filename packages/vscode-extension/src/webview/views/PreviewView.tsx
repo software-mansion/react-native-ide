@@ -219,7 +219,7 @@ function PreviewView() {
           // @ts-ignore TODO: Fix typing
           value={selectedDevice?.id}
           // @ts-ignore TODO: Fix typing
-          label={selectedDevice?.name}
+          label={selectedDevice?.customName ? selectedDevice?.customName : selectedDevice?.name}
           onValueChange={handleDeviceDropdownChange}
           disabled={devicesNotFound}
         />

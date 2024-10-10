@@ -1,6 +1,6 @@
+import { useEffect, useRef, useState, FocusEventHandler } from "react";
 import Select from "../components/shared/Select";
 import "./CreateDeviceView.css";
-import { useEffect, useState } from "react";
 import { useDevices } from "../providers/DevicesProvider";
 import Button from "../components/shared/Button";
 import Label from "../components/shared/Label";
@@ -58,11 +58,19 @@ function useSupportedDevices() {
   ];
 }
 
+export const MAX_CUSTOM_NAME_LENGTH = 30;
+export function formatCustomName(name: string) {
+  const singleSpaced = name.replace(/\s+/g, " ");
+  return singleSpaced.replace(/[^a-zA-Z0-9 _-]/g, "");
+}
+
 function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
   const [deviceName, setDeviceName] = useState<string | undefined>(undefined);
   const [devicePlatform, setDevicePlatform] = useState<"ios" | "android" | undefined>(undefined);
   const [selectedSystemName, selectSystemName] = useState<string | undefined>(undefined);
+  const [isCustomNameValid, setIsCustomNameValid] = useState(true);
   const [loading, setLoading] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const supportedDevices = useSupportedDevices();
   const { iOSRuntimes, androidImages, deviceManager, reload } = useDevices();
@@ -94,6 +102,7 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
 
     setLoading(true);
     try {
+      const customName = formatCustomName(inputRef.current!.value).trim();
       if (devicePlatform === "ios" && Platform.OS === "macos") {
         const runtime = iOSRuntimes.find(({ identifier }) => identifier === selectedSystemName);
         if (!runtime) {
@@ -103,18 +112,25 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
         if (!iOSDeviceType) {
           return;
         }
-        await deviceManager.createIOSDevice(iOSDeviceType, runtime);
+        await deviceManager.createIOSDevice(iOSDeviceType, runtime, customName);
       } else {
         const systemImage = androidImages.find((image) => image.location === selectedSystemName);
         if (!systemImage || !deviceName) {
           return;
         }
-        await deviceManager.createAndroidDevice(deviceName, systemImage);
+        await deviceManager.createAndroidDevice(deviceName, systemImage, customName);
       }
     } finally {
       onCreate();
     }
   }
+
+  const handleCustomNameChange: FocusEventHandler<HTMLInputElement> = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    inputRef.current!.value = formatCustomName(inputRef.current!.value);
+    setIsCustomNameValid(inputRef.current!.value.length <= MAX_CUSTOM_NAME_LENGTH);
+  };
 
   return (
     <div className="edit-device-form">
@@ -130,6 +146,8 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
             setDeviceName(name);
             setDevicePlatform(newPlatform);
             selectSystemName(undefined);
+            inputRef.current!.value = "";
+            setIsCustomNameValid(true);
           }}
           items={supportedDevices}
           placeholder="Choose device type..."
@@ -140,13 +158,15 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
           <span>System image</span>
           {systemImagesOptions.length === 0 && <span className="codicon codicon-warning warning" />}
         </Label>
-        <div className="form-label" />
         {systemImagesOptions.length > 0 ? (
           <Select
             disabled={!platformSelected}
             className="form-field"
             value={selectedSystemName ?? ""}
-            onChange={(newValue) => selectSystemName(newValue)}
+            onChange={(newValue) => {
+              selectSystemName(newValue);
+              inputRef.current!.value = deviceName ?? "";
+            }}
             items={systemImagesOptions}
             placeholder="Select device system image..."
           />
@@ -157,6 +177,24 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
           </div>
         )}
       </div>
+      <div className="form-row">
+        <Label>
+          <span>Name</span>
+        </Label>
+        <input
+          ref={inputRef}
+          className="custom-name-input"
+          style={isCustomNameValid ? {} : { border: "1px solid var(--red-light-100)" }}
+          type="string"
+          onChange={handleCustomNameChange}
+          disabled={!selectedSystemName}
+        />
+      </div>
+      {!isCustomNameValid && (
+        <div className="submit-rejection-message">
+          Name may not be longer than {MAX_NAME_LENGTH} characters.
+        </div>
+      )}
       <div className="button-panel">
         <Button onClick={onCancel} type="secondary">
           Cancel

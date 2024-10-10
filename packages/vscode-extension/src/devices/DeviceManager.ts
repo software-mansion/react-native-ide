@@ -5,6 +5,7 @@ import {
   SimulatorDeviceSet,
   createSimulator,
   listSimulators,
+  renameIosSimulator,
   removeIosSimulator,
 } from "./IosSimulatorDevice";
 import { getAvailableIosRuntimes } from "../utilities/iosRuntimes";
@@ -12,6 +13,7 @@ import {
   AndroidEmulatorDevice,
   createEmulator,
   listEmulators,
+  renameEmulator,
   removeEmulator,
 } from "./AndroidEmulatorDevice";
 import {
@@ -146,21 +148,40 @@ export class DeviceManager implements DeviceManagerInterface {
     }
   }
 
-  public async createAndroidDevice(displayName: string, systemImage: AndroidSystemImageInfo) {
-    const emulator = await createEmulator(displayName, systemImage);
+  public async createAndroidDevice(
+    displayName: string,
+    systemImage: AndroidSystemImageInfo,
+    customName?: string
+  ) {
+    const emulator = await createEmulator(displayName, systemImage, customName ?? "");
     await this.loadDevices(true);
     return emulator;
   }
 
-  public async createIOSDevice(deviceType: IOSDeviceTypeInfo, runtime: IOSRuntimeInfo) {
+  public async createIOSDevice(
+    deviceType: IOSDeviceTypeInfo,
+    runtime: IOSRuntimeInfo,
+    customName?: string
+  ) {
     const simulator = await createSimulator(
       deviceType.name,
       deviceType.identifier,
       runtime,
-      SimulatorDeviceSet.RN_IDE
+      SimulatorDeviceSet.RN_IDE,
+      customName
     );
     await this.loadDevices(true);
     return simulator;
+  }
+
+  public async renameDevice(device: DeviceInfo, customName: string) {
+    if (device.platform === DevicePlatform.IOS) {
+      await renameIosSimulator(device.UDID, customName);
+    }
+    if (device.platform === DevicePlatform.Android) {
+      await renameEmulator(device.avdId, customName);
+    }
+    await this.loadDevices();
   }
 
   public async removeDevice(device: DeviceInfo) {

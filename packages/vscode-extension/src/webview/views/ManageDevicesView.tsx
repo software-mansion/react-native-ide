@@ -1,6 +1,7 @@
 import "./ManageDevicesView.css";
 import { useEffect, useState } from "react";
 import IconButton from "../components/shared/IconButton";
+import DeviceRenameDialog from "../components/DeviceRenameDialog";
 import DeviceRemovalConfirmation from "../components/DeviceRemovalConfirmation";
 import CreateDeviceView from "./CreateDeviceView";
 import { DeviceInfo, DevicePlatform } from "../../common/DeviceManager";
@@ -8,16 +9,34 @@ import { useDevices } from "../providers/DevicesProvider";
 import Tooltip from "../components/shared/Tooltip";
 import Label from "../components/shared/Label";
 import Button from "../components/shared/Button";
+import { useProject } from "../providers/ProjectProvider";
+import { useModal } from "../providers/ModalProvider";
 
 interface DeviceRowProps {
   deviceInfo: DeviceInfo;
+  onDeviceRename: (device: DeviceInfo) => void;
   onDeviceDelete: (device: DeviceInfo) => void;
+  isSelected: boolean;
 }
 
-function DeviceRow({ deviceInfo, onDeviceDelete }: DeviceRowProps) {
+function DeviceRow({ deviceInfo, onDeviceRename, onDeviceDelete, isSelected }: DeviceRowProps) {
+  const { project } = useProject();
+
+  const handleDeviceChange = async () => {
+    if (!isSelected) {
+      project.selectDevice(deviceInfo);
+    }
+  };
+
+  const deviceTitle = deviceInfo.customName ? deviceInfo.customName : deviceInfo.name;
+  const deviceSubtitle = deviceInfo.customName
+    ? `${deviceInfo.name} - ${deviceInfo.systemName}`
+    : deviceInfo.systemName;
+
+  const { closeModal } = useModal();
   return (
     <div className="device-row">
-      <div className="device-icon">
+      <div className={isSelected ? "device-icon-selected" : "device-icon"}>
         {!deviceInfo.available ? (
           <Tooltip
             label="This device cannot be used. Perhaps the system image or runtime is missing. Try deleting and creating a new device instead."
@@ -30,26 +49,65 @@ function DeviceRow({ deviceInfo, onDeviceDelete }: DeviceRowProps) {
         )}
       </div>
       <div className="device-label">
-        <div className="device-title">{deviceInfo.name}</div>
-        <div className="device-subtitle">{deviceInfo.systemName}</div>
+        <div className="device-title">{isSelected ? <b>{deviceTitle}</b> : deviceTitle}</div>
+        <div className="device-subtitle">{deviceSubtitle}</div>
       </div>
-      <IconButton
-        tooltip={{
-          label: `Remove device with it's ${
-            deviceInfo.platform === DevicePlatform.IOS ? "runtime." : "system image."
-          }`,
-          side: "bottom",
-          type: "secondary",
-        }}
-        onClick={() => onDeviceDelete(deviceInfo)}>
-        <span className="codicon codicon-trash delete-icon" />
-      </IconButton>
+      <span className="device-button-group">
+        {!isSelected ? (
+          <IconButton
+            tooltip={{
+              label: "Select device.",
+              side: "bottom",
+              type: "secondary",
+            }}
+            onClick={async (e) => {
+              e.stopPropagation();
+              await handleDeviceChange();
+              closeModal();
+            }}>
+            <span className="codicon codicon-play" />
+          </IconButton>
+        ) : (
+          <IconButton onClick={() => {}} disabled={true}>
+            <span className="codicon codicon-blank" />
+          </IconButton>
+        )}
+        <IconButton
+          tooltip={{
+            label: "Rename device's name.",
+            side: "bottom",
+            type: "secondary",
+          }}
+          onClick={async (e) => {
+            e.stopPropagation();
+            onDeviceRename(deviceInfo);
+          }}>
+          <span className="codicon codicon-case-sensitive" />
+        </IconButton>
+        <IconButton
+          tooltip={{
+            label: `Remove device with it's ${
+              deviceInfo.platform === DevicePlatform.IOS ? "runtime." : "system image."
+            }`,
+            side: "bottom",
+            type: "secondary",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeviceDelete(deviceInfo);
+          }}>
+          <span className="codicon codicon-trash delete-icon" />
+        </IconButton>
+      </span>
     </div>
   );
 }
 
 function ManageDevicesView() {
+  const { projectState } = useProject();
+  const selectedProjectDevice = projectState?.selectedDevice;
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | undefined>(undefined);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [createDeviceViewOpen, setCreateDeviceViewOpen] = useState(false);
 
@@ -59,8 +117,17 @@ function ManageDevicesView() {
     reload();
   }, []);
 
-  const androidDevices = devices.filter((device) => device.platform === DevicePlatform.Android);
-  const iosDevices = devices.filter((device) => device.platform === DevicePlatform.IOS);
+  const iosDevices = devices.filter(
+    ({ platform, name }) => platform === DevicePlatform.IOS && name.length > 0
+  );
+  const androidDevices = devices.filter(
+    ({ platform, name }) => platform === DevicePlatform.Android && name.length > 0
+  );
+
+  const handleDeviceRename = (device: DeviceInfo) => {
+    setSelectedDevice(device);
+    setRenameDialogOpen(true);
+  };
 
   const handleDeviceDelete = (device: DeviceInfo) => {
     setSelectedDevice(device);
@@ -68,9 +135,14 @@ function ManageDevicesView() {
   };
 
   const handleConfirmationClose = () => {
+    setRenameDialogOpen(false);
     setDeleteConfirmationOpen(false);
     setSelectedDevice(undefined);
   };
+
+  if (renameDialogOpen && selectedDevice) {
+    return <DeviceRenameDialog deviceInfo={selectedDevice} onClose={handleConfirmationClose} />;
+  }
 
   if (deleteConfirmationOpen && selectedDevice) {
     return (
@@ -96,7 +168,9 @@ function ManageDevicesView() {
             <DeviceRow
               key={deviceInfo.id}
               deviceInfo={deviceInfo}
+              onDeviceRename={handleDeviceRename}
               onDeviceDelete={handleDeviceDelete}
+              isSelected={deviceInfo.id === selectedProjectDevice?.id}
             />
           ))}
         </>
@@ -108,7 +182,9 @@ function ManageDevicesView() {
             <DeviceRow
               key={deviceInfo.id}
               deviceInfo={deviceInfo}
+              onDeviceRename={handleDeviceRename}
               onDeviceDelete={handleDeviceDelete}
+              isSelected={deviceInfo.id === selectedProjectDevice?.id}
             />
           ))}
         </>

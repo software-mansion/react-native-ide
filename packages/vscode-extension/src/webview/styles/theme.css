@@ -164,6 +164,7 @@ body[data-vscode-theme-kind="vscode-light"] {
   --swm-device-select-rich-item-text: var(--navy-light-100);
   --swm-device-select-rich-item-subtitle: var(--navy-light-40);
   --swm-device-select-rich-item-icon: var(--navy-light-20);
+  --swm-device-select-rich-item-icon-selected: var(--navy-light-40);
 
   /* Slider */
   --swm-slider: var(--navy-light-60);
@@ -239,7 +240,8 @@ body[data-vscode-theme-kind="vscode-light"] {
   --swm-device-title: var(--swm-default-text);
   --swm-device-subtitle: var(--navy-light-60);
   --swm-device-icon: var(--swm-default-text);
-  --swm-device-icon-background: var(--navy-light-10);
+  --swm-device-icon-background: var(--navy-light-20);
+  --swm-device-icon-background-selected: var(--green-light-80);
   --swm-device-delete-icon: var(--red-light-100);
   --swm-device-warning-icon: var(--yellow-light-80);
 
@@ -315,6 +317,7 @@ body[data-vscode-theme-kind="vscode-dark"] {
   --swm-device-select-rich-item-text: var(--off-white);
   --swm-device-select-rich-item-subtitle: var(--background-dark-10);
   --swm-device-select-rich-item-icon: var(--background-dark-70);
+  --swm-device-select-rich-item-icon-selected: var(--background-dark-50);
 
   /* Slider */
   --swm-slider: var(--white);
@@ -391,6 +394,7 @@ body[data-vscode-theme-kind="vscode-dark"] {
   --swm-device-subtitle: var(--background-dark-10);
   --swm-device-icon: var(--swm-default-text);
   --swm-device-icon-background: var(--background-dark-70);
+  --swm-device-icon-background-selected: var(--green-dark-120);
   --swm-device-delete-icon: var(--red-dark-80);
   --swm-device-warning-icon: var(--yellow-dark-100);
 

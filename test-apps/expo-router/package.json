@@ -6,7 +6,7 @@
     "web": "expo start --web",
     "storybook-generate": "sb-rn-get-stories",
     "storybook": "STORYBOOK_ENABLED='true' expo start",
-    "copy-shared": "../shared/copy.sh expo-router ./shared"
+    "copy-shared": "bash ../shared/copy.sh expo-router ./shared"
   },
   "dependencies": {
     "@types/react": "~18.2.79",

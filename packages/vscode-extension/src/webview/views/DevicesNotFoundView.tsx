@@ -1,15 +1,14 @@
 import "./DevicesNotFoundView.css";
+import { useCallback, useState } from "react";
+import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import SmartphoneIcon from "../components/icons/SmartphoneIcon";
 import Button from "../components/shared/Button";
 import { useModal } from "../providers/ModalProvider";
 import CreateDeviceView from "./CreateDeviceView";
 import { useDevices } from "../providers/DevicesProvider";
-import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
-import { useCallback, useState } from "react";
 import { AndroidSupportedDevices, iOSSupportedDevices } from "../utilities/consts";
 import { IOSDeviceTypeInfo, IOSRuntimeInfo } from "../../common/DeviceManager";
 import { useDependencies } from "../providers/DependenciesProvider";
-import { vscode } from "../utilities/vscode";
 import { Platform, useUtils } from "../providers/UtilsProvider";
 
 const firstIosDeviceName = iOSSupportedDevices[0].name;

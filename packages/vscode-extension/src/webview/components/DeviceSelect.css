@@ -47,6 +47,7 @@
   width: var(--swm-device-select-width);
   border-radius: 18px 18px 0 0;
   padding-top: 4px;
+  max-height: var(--radix-select-content-available-height);
 }
 
 .device-select-viewport {
@@ -88,7 +89,6 @@
   line-height: 1;
   height: 48px;
   border-radius: 4px;
-
   padding: 0 5px;
 }
 .device-select-rich-item[data-highlighted] {
@@ -104,6 +104,7 @@
   font-size: 14px;
   color: var(--swm-device-select-rich-item-text);
   margin-bottom: 4px;
+  padding-right: 10px;
 }
 .device-select-rich-item-subtitle {
   font-size: 12px;
@@ -113,7 +114,7 @@
   text-overflow: ellipsis;
   width: 185px;
 }
-.device-select-rich-item-icon {
+.device-select-rich-item-icon, .device-select-rich-item-icon-selected {
   width: 32px;
   height: 32px;
   display: flex;
@@ -121,7 +122,10 @@
   justify-content: center;
   border-radius: 16px;
   color: var(--swm-default-text);
-  background-color: var(--swm-device-select-rich-item-icon);
+  background-color: var(--swm-device-icon-background);
+}
+.device-select-rich-item-icon-selected {
+  background-color: var(--swm-device-icon-background-selected);
 }
 
 .device-select-label {
@@ -130,4 +134,10 @@
   line-height: 25px;
   color: var(--swm-device-select-label);
   user-select: none;
+}
+
+.device-select-scroll {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
