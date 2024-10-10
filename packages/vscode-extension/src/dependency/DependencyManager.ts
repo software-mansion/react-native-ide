@@ -352,5 +352,5 @@ async function areNativeDirectoriesOptional(): Promise<boolean> {
   const isExpoGo = await isExpoGoProject();
   const launchConfiguration = getLaunchConfiguration();
 
-  return isExpoGo && !!launchConfiguration.eas && !!launchConfiguration.customBuild;
+  return isExpoGo || !!launchConfiguration.eas || !!launchConfiguration.customBuild;
 }
