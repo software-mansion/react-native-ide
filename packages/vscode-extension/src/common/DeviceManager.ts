@@ -60,6 +60,7 @@ export interface DeviceManagerInterface {
 
   createAndroidDevice(
     displayName: string,
+    deviceName: string,
     systemImage: AndroidSystemImageInfo
   ): Promise<DeviceInfo>;
   createIOSDevice(deviceType: IOSDeviceTypeInfo, runtime: IOSRuntimeInfo): Promise<DeviceInfo>;

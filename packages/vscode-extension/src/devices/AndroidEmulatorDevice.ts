@@ -133,6 +133,7 @@ export class AndroidEmulatorDevice extends DeviceBase {
     await ensureOldEmulatorProcessExited(this.avdId);
 
     const avdDirectory = getOrCreateAvdDirectory(this.avdId);
+
     const subprocess = exec(
       EMULATOR_BINARY,
       [
@@ -392,7 +393,7 @@ export class AndroidEmulatorDevice extends DeviceBase {
   }
 }
 
-export async function createEmulator(displayName: string, systemImage: AndroidSystemImageInfo) {
+export async function createEmulator(displayName: string, deviceName: string, systemImage: AndroidSystemImageInfo) {
   const avdDirectory = getOrCreateAvdDirectory();
   const avdId = uuidv4();
   const avdIni = path.join(avdDirectory, `${avdId}.ini`);
@@ -428,9 +429,8 @@ export async function createEmulator(displayName: string, systemImage: AndroidSy
     ["hw.cpu.arch", getNativeQemuArch()],
     ["hw.cpu.ncore", "4"],
     ["hw.dPad", "no"],
-    ["hw.device.hash2", "MD5:3db3250dab5d0d93b29353040181c7e9"],
     ["hw.device.manufacturer", "Google"],
-    ["hw.device.name", "pixel_7"],
+    ["hw.device.name", deviceName],
     ["hw.gps", "yes"],
     ["hw.gpu.enabled", "yes"],
     ["hw.gpu.mode", "auto"],

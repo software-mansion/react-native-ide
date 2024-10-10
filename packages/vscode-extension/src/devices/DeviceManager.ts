@@ -146,8 +146,8 @@ export class DeviceManager implements DeviceManagerInterface {
     }
   }
 
-  public async createAndroidDevice(displayName: string, systemImage: AndroidSystemImageInfo) {
-    const emulator = await createEmulator(displayName, systemImage);
+  public async createAndroidDevice(displayName: string, deviceName: string, systemImage: AndroidSystemImageInfo) {
+    const emulator = await createEmulator(displayName, deviceName, systemImage);
     await this.loadDevices(true);
     return emulator;
   }

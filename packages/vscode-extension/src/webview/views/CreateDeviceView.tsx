@@ -30,11 +30,11 @@ function useSupportedDevices() {
   function buildSelections(item: DeviceProperties, platform: DevicePlatform) {
     let prefix = "";
     if (platform === DevicePlatform.IOS) {
-      prefix = "ios:";
+      prefix = "ios";
     } else {
-      prefix = "android:";
+      prefix = "android";
     }
-    return { value: prefix + item.name, label: item.name };
+    return { value: `${prefix}:${item.displayName}:${item.deviceName}`, label: item.displayName };
   }
 
   return [
@@ -59,6 +59,7 @@ function useSupportedDevices() {
 }
 
 function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
+  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const [deviceName, setDeviceName] = useState<string | undefined>(undefined);
   const [devicePlatform, setDevicePlatform] = useState<"ios" | "android" | undefined>(undefined);
   const [selectedSystemName, selectSystemName] = useState<string | undefined>(undefined);
@@ -71,8 +72,8 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
     reload();
   }, []);
 
-  const platformSelected = !!deviceName && !!devicePlatform;
-  const createDisabled = loading || !deviceName || !selectedSystemName;
+  const platformSelected = !!displayName && !!devicePlatform;
+  const createDisabled = loading || !displayName || !selectedSystemName;
 
   const systemImagesOptions =
     platformSelected && devicePlatform === "ios"
@@ -99,17 +100,17 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
         if (!runtime) {
           return;
         }
-        const iOSDeviceType = runtime.supportedDeviceTypes.find(({ name }) => name === deviceName);
+        const iOSDeviceType = runtime.supportedDeviceTypes.find(({ name }) => name === displayName);
         if (!iOSDeviceType) {
           return;
         }
         await deviceManager.createIOSDevice(iOSDeviceType, runtime);
       } else {
         const systemImage = androidImages.find((image) => image.location === selectedSystemName);
-        if (!systemImage || !deviceName) {
+        if (!systemImage || !displayName || !deviceName) {
           return;
         }
-        await deviceManager.createAndroidDevice(deviceName, systemImage);
+        await deviceManager.createAndroidDevice(displayName, deviceName, systemImage);
       }
     } finally {
       onCreate();
@@ -122,12 +123,12 @@ function CreateDeviceView({ onCreate, onCancel }: CreateDeviceViewProps) {
         <Label>Device Type</Label>
         <Select
           className="form-field"
-          value={`${devicePlatform && deviceName ? `${devicePlatform}:${deviceName}` : ""}`}
+          value={`${devicePlatform && displayName ? `${devicePlatform}:${displayName}:${deviceName}` : ""}`}
           onChange={(newValue: string) => {
-            const [newPlatform, name] = newValue.split(":", 2);
+            const [newPlatform, newDisplayName, newDeviceName] = newValue.split(":", 3);
             assertPlatform(newPlatform);
-
-            setDeviceName(name);
+            setDisplayName(newDisplayName);
+            setDeviceName(newDeviceName);
             setDevicePlatform(newPlatform);
             selectSystemName(undefined);
           }}

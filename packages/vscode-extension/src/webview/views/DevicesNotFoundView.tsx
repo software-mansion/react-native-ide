@@ -1,19 +1,19 @@
 import "./DevicesNotFoundView.css";
+import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
+import { useCallback, useState } from "react";
 import SmartphoneIcon from "../components/icons/SmartphoneIcon";
 import Button from "../components/shared/Button";
 import { useModal } from "../providers/ModalProvider";
 import CreateDeviceView from "./CreateDeviceView";
 import { useDevices } from "../providers/DevicesProvider";
-import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
-import { useCallback, useState } from "react";
 import { AndroidSupportedDevices, iOSSupportedDevices } from "../utilities/consts";
 import { IOSDeviceTypeInfo, IOSRuntimeInfo } from "../../common/DeviceManager";
 import { useDependencies } from "../providers/DependenciesProvider";
 import { vscode } from "../utilities/vscode";
 import { Platform, useUtils } from "../providers/UtilsProvider";
 
-const firstIosDeviceName = iOSSupportedDevices[0].name;
-const firstAndroidDeviceName = AndroidSupportedDevices[0].name;
+const firstIosDevice = iOSSupportedDevices[0];
+const firstAndroidDevice = AndroidSupportedDevices[0];
 
 function getMax<T>(array: T[], predicate: (element: T, currentMax: T) => boolean): T | undefined {
   if (array.length === 0) {
@@ -47,7 +47,7 @@ function useLoadingState() {
 }
 
 function firstRuntimeSupportedDevice(supportedDeviceTypes: IOSDeviceTypeInfo[]) {
-  return supportedDeviceTypes.find(({ name }) => name === firstIosDeviceName);
+  return supportedDeviceTypes.find(({ name }) => name === firstIosDevice.displayName);
 }
 
 function findNewestIosRuntime(runtimes: IOSRuntimeInfo[]) {
@@ -89,12 +89,19 @@ function DevicesNotFoundView() {
         androidImages,
         (image, currentNewestImage) => image.apiLevel > currentNewestImage.apiLevel
       );
+
       if (newestImage === undefined) {
         openCreateNewDeviceModal();
         return;
       }
 
-      await deviceManager.createAndroidDevice(firstAndroidDeviceName, newestImage);
+      const { displayName, deviceName } = firstAndroidDevice;
+
+      if (deviceName === undefined) {
+        return;
+      }
+
+      await deviceManager.createAndroidDevice(displayName, deviceName, newestImage);
     });
   }
 
