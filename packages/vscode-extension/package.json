@@ -434,7 +434,7 @@
     "build:expo-fingerprint": "esbuild ./node_modules/@expo/fingerprint/build/sourcer/ExpoConfigLoader.js --bundle --format=cjs --outfile=dist/ExpoConfigLoader.js --platform=node --minify",
     "build:webview": "vite build --mode production && cp ./node_modules/@vscode/codicons/dist/codicon.* dist/.",
     "build:sim-server-debug": "bash ./scripts/build-sim-server.sh dist Debug",
-    "build:sim-server": "bash ./scripts/build-sim-server.sh dist Release",
+    "build:sim-server": "bash ./scripts/install-sim-server-release-build.sh dist",
     "build:debug": "npm run build:extension-debug && npm run build:sim-server-debug",
     "build:dist": "npm run build:extension && npm run build:sim-server && npm run build:webview",
     "watch:extension": "vite",
