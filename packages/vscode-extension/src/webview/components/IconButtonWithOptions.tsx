@@ -1,8 +1,8 @@
-import { forwardRef, useRef, useState } from "react";
+import { forwardRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import classNames from "classnames";
 import IconButton, { IconButtonProps } from "./shared/IconButton";
 import "./IconButtonWithOptions.css";
-import classNames from "classnames";
 
 interface IconButtonWithOptions extends IconButtonProps {
   options: Record<string, () => void>;
@@ -12,7 +12,6 @@ export const IconButtonWithOptions = forwardRef<HTMLButtonElement, IconButtonWit
   (props, ref) => {
     const { options, children, ...iconButtonProps } = props;
 
-    const timer = useRef<NodeJS.Timeout | undefined>(undefined);
     const [dropdownTriggerVisible, setDropdownTriggerVisible] = useState(false);
 
     return (

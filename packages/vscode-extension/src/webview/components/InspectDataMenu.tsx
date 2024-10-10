@@ -1,6 +1,6 @@
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { InspectDataStackItem } from "../../common/Project";
 import { useEffect, useRef } from "react";
+import { InspectDataStackItem } from "../../common/Project";
 
 import "./InspectDataMenu.css";
 
@@ -36,7 +36,9 @@ export function InspectDataMenu({
   return (
     <ContextMenu.Root
       onOpenChange={(open) => {
-        if (!open) onCancel();
+        if (!open) {
+          onCancel();
+        }
       }}>
       <ContextMenu.Trigger ref={triggerRef} />
       <ContextMenu.Portal>

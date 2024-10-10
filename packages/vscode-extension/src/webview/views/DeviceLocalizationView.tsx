@@ -1,9 +1,9 @@
+import { useEffect, useRef, useState } from "react";
+import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useProject } from "../providers/ProjectProvider";
 import "./DeviceLocalizationView.css";
 import "../components/shared/SwitchGroup.css";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
 import localesList from "../utilities/localeList.json";
-import { useEffect, useRef, useState } from "react";
 import { Locale } from "../../common/Project";
 import { useModal } from "../providers/ModalProvider";
 import Button from "../components/shared/Button";

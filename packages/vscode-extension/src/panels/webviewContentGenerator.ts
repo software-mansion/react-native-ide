@@ -1,7 +1,6 @@
-import { ExtensionContext, ExtensionMode, Webview, Uri, extensions } from "vscode";
+import { ExtensionContext, ExtensionMode, Webview, Uri } from "vscode";
 import { getUri } from "../utilities/getUri";
 import { getNonce } from "../utilities/getNonce";
-import { getDevServerScriptUrl } from "../utilities/common";
 import { Platform } from "../utilities/platform";
 
 const VITE_DEV_HOST = "localhost:2137";

@@ -276,13 +276,13 @@ export class DebugAdapter extends DebugSession {
           line: lineNumber1Based,
           column: columnNumber0Based,
         });
-        if (pos.source != null) {
+        if (pos.source !== null) {
           sourceURL = pos.source;
         }
-        if (pos.line != null) {
+        if (pos.line !== null) {
           sourceLine1Based = pos.line;
         }
-        if (pos.column != null) {
+        if (pos.column !== null) {
           sourceColumn0Based = pos.column;
         }
       }
@@ -451,7 +451,7 @@ export class DebugAdapter extends DebugSession {
         column: columnNumber0Based,
         bias: SourceMapConsumer.LEAST_UPPER_BOUND,
       });
-      if (pos.line != null) {
+      if (pos.line !== null) {
         originalSourceURL = sourceURL;
         position = pos;
       }

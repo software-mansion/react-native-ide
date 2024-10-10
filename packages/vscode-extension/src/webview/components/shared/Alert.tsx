@@ -1,7 +1,6 @@
 import React from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import "./Alert.css";
-import classNames from "classnames";
 import ErrorIcon from "../icons/ErrorIcon";
 
 interface AlertProps {

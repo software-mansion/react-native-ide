@@ -1,0 +1,37 @@
+name: Typecheck vscode-extension
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/typecheck-extension.yml"
+      - "packages/vscode-extension/**"
+  pull_request:
+    paths:
+      - ".github/workflows/typecheck-extension.yml"
+      - "packages/vscode-extension/**"
+
+jobs:
+  check:
+    if: github.repository == 'software-mansion/radon-ide'
+    runs-on: ubuntu-latest
+    env:
+      WORKING_DIRECTORY: packages/vscode-extension
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: packages/vscode-extension/package-lock.json
+
+      - name: Install node dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm i
+
+      - name: Typecheck extension
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm run typecheck

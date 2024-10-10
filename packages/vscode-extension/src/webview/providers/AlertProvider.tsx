@@ -32,16 +32,16 @@ export default function AlertProvider({ children }: { children: React.ReactNode 
   );
 
   const openAlert = useCallback(({ id, title, description, actions, priority }: AlertType) => {
-    setAlerts((alerts) => {
-      if (alerts.some((alert) => alert.id === id)) {
-        return alerts;
+    setAlerts((oldAlerts) => {
+      if (oldAlerts.some((alert) => alert.id === id)) {
+        return oldAlerts;
       }
-      return [...alerts, { id, title, description, actions, priority }];
+      return [...oldAlerts, { id, title, description, actions, priority }];
     });
   }, []);
 
   const closeAlert = useCallback((id: string) => {
-    setAlerts((alerts) => alerts.filter((alert) => alert.id !== id));
+    setAlerts((oldAlerts) => oldAlerts.filter((alert) => alert.id !== id));
   }, []);
 
   const topAlert = getTopAlert(alerts);

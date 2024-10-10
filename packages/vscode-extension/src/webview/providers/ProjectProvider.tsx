@@ -10,45 +10,35 @@ interface ProjectContextProps {
   project: ProjectInterface;
 }
 
+const defaultProjectState: ProjectState = {
+  status: "starting",
+  previewURL: undefined,
+  selectedDevice: undefined,
+  previewZoom: undefined,
+};
+
+const defaultDeviceSettings: DeviceSettings = {
+  appearance: "dark",
+  contentSize: "normal",
+  hasEnrolledBiometrics: false,
+  location: {
+    latitude: 50.048653,
+    longitude: 19.965474,
+    isDisabled: false,
+  },
+  locale: "en_US",
+  replaysEnabled: false,
+};
+
 const ProjectContext = createContext<ProjectContextProps>({
-  projectState: {
-    status: "starting",
-    previewURL: undefined,
-    selectedDevice: undefined,
-    previewZoom: undefined,
-  },
-  deviceSettings: {
-    appearance: "dark",
-    contentSize: "normal",
-    hasEnrolledBiometrics: false,
-    location: {
-      latitude: 50.048653,
-      longitude: 19.965474,
-      isDisabled: false,
-    },
-    locale: "en_US",
-  },
+  projectState: defaultProjectState,
+  deviceSettings: defaultDeviceSettings,
   project,
 });
 
 export default function ProjectProvider({ children }: PropsWithChildren) {
-  const [projectState, setProjectState] = useState<ProjectState>({
-    status: "starting",
-    previewURL: undefined,
-    selectedDevice: undefined,
-    previewZoom: undefined,
-  });
-  const [deviceSettings, setDeviceSettings] = useState<DeviceSettings>({
-    appearance: "dark",
-    contentSize: "normal",
-    hasEnrolledBiometrics: false,
-    location: {
-      latitude: 50.048653,
-      longitude: 19.965474,
-      isDisabled: false,
-    },
-    locale: "en_US",
-  });
+  const [projectState, setProjectState] = useState<ProjectState>(defaultProjectState);
+  const [deviceSettings, setDeviceSettings] = useState<DeviceSettings>(defaultDeviceSettings);
 
   useEffect(() => {
     project.getProjectState().then(setProjectState);

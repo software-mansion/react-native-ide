@@ -1,10 +1,10 @@
-import { useProject } from "../providers/ProjectProvider";
 import React, { FocusEventHandler, useRef, useState } from "react";
 import "./DeviceLocationView.css";
 import "../components/shared/SwitchGroup.css";
-import Label from "../components/shared/Label";
 import * as Switch from "@radix-ui/react-switch";
 import CoordinateParser from "coordinate-parser";
+import { useProject } from "../providers/ProjectProvider";
+import Label from "../components/shared/Label";
 import Tooltip from "../components/shared/Tooltip";
 import { throttle } from "../../utilities/throttle";
 

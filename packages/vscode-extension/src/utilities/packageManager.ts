@@ -10,15 +10,6 @@ export type PackageManagerInfo = {
   workspacePath?: string;
 };
 
-async function pathExists(p: string) {
-  try {
-    await fs.access(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function resolvePackageManager(): Promise<PackageManagerInfo | undefined> {
   function findWorkspace(appRoot: string) {
     let currentDir = appRoot;
@@ -81,7 +72,7 @@ export async function resolvePackageManager(): Promise<PackageManagerInfo | unde
 
 async function isNpmModulesInstalled(workspacePath: string): Promise<boolean> {
   try {
-    const { stdout, stderr } = await command("npm ls --json", {
+    const { stdout } = await command("npm ls --json", {
       cwd: workspacePath,
       quietErrorsOnExit: true,
     });
@@ -99,7 +90,7 @@ async function isYarnModulesInstalled(workspacePath: string): Promise<boolean> {
     // that if the users shell is using the older one this function may produce false in unexpected ways but even then
     // we'll just run "yarn install" every time which is exactly what we would need to do without isYarnInstalled.
     // https://docs.npmjs.com/cli/v7/commands/npm-install
-    const { stdout, stderr } = await command("npm ls --json", {
+    const { stdout } = await command("npm ls --json", {
       cwd: workspacePath,
       quietErrorsOnExit: true,
     });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import * as Select from "@radix-ui/react-select";
 import { RecordingData } from "../../common/Project";
 import { useUtils } from "../providers/UtilsProvider";
-import * as Select from "@radix-ui/react-select";
 import "./ReplayOverlay.css";
 import Button from "./shared/Button";
 
@@ -64,11 +64,13 @@ function Seekbar({ videoRef, startTime }: SeekbarProps) {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) {
+      return;
+    }
 
     const updateProgress = () => {
-      const progress = ((video.currentTime - startTime) / (video.duration - startTime)) * 100;
-      setProgress(progress);
+      const newProgress = ((video.currentTime - startTime) / (video.duration - startTime)) * 100;
+      setProgress(newProgress);
     };
     updateProgress();
 
@@ -78,7 +80,9 @@ function Seekbar({ videoRef, startTime }: SeekbarProps) {
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const seekbar = seekbarRef.current;
-    if (!seekbar) return;
+    if (!seekbar) {
+      return;
+    }
 
     const rect = seekbar.getBoundingClientRect();
     const seekPosition = (e.clientX - rect.left) / rect.width;
@@ -135,11 +139,11 @@ function LengthSelector({ startTime, videoRef, setStartTime }: LengthSelectorPro
     return `${length}s`;
   }
 
-  function onValueChange(value: string) {
-    if (value === "Full") {
+  function onValueChange(newValue: string) {
+    if (newValue === "Full") {
       setStartTime(0);
     } else {
-      const newStartTime = videoDuration - parseInt(value);
+      const newStartTime = videoDuration - parseInt(newValue);
       setStartTime(newStartTime);
     }
   }

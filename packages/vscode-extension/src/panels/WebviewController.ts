@@ -1,9 +1,8 @@
-import vscode, { Webview, Disposable, window, commands, Uri } from "vscode";
+import { Webview, Disposable, commands, Uri } from "vscode";
 import { DependencyManager } from "../dependency/DependencyManager";
 import { DeviceManager } from "../devices/DeviceManager";
 import { Project } from "../project/project";
 import { Logger } from "../Logger";
-import { extensionContext } from "../utilities/extensionContext";
 import { WorkspaceConfigController } from "./WorkspaceConfigController";
 import { getTelemetryReporter } from "../utilities/telemetry";
 import { Utils } from "../utilities/utils";

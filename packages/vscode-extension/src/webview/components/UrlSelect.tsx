@@ -1,4 +1,4 @@
-import React, { PropsWithChildren, useState, useEffect } from "react";
+import React, { PropsWithChildren } from "react";
 import * as Select from "@radix-ui/react-select";
 import "./UrlSelect.css";
 

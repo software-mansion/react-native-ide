@@ -1,6 +1,6 @@
+import { useEffect, useState } from "react";
 import Select from "../components/shared/Select";
 import "./CreateDeviceView.css";
-import { useEffect, useState } from "react";
 import { useDevices } from "../providers/DevicesProvider";
 import Button from "../components/shared/Button";
 import Label from "../components/shared/Label";

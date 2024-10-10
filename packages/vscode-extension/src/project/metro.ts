@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import WebSocket from "ws";
 import { Disposable, Uri, workspace } from "vscode";
 import stripAnsi from "strip-ansi";
 import { exec, ChildProcess, lineReader } from "../utilities/subprocess";
@@ -8,7 +9,6 @@ import { extensionContext, getAppRootFolder } from "../utilities/extensionContex
 import { shouldUseExpoCLI } from "../utilities/expoCli";
 import { Devtools } from "./devtools";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
-import WebSocket from "ws";
 
 export interface MetroDelegate {
   onBundleError(): void;

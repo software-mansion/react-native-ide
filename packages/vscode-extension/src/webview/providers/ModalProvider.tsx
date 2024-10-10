@@ -19,10 +19,10 @@ export default function ModalProvider({ children }: { children: React.ReactNode 
   const [open, setOpen] = useState(false);
   const [headerShown, showHeader] = useState(true);
 
-  const openModal = (title: string, component: React.ReactNode) => {
-    setTitle(title);
+  const openModal = (modalTitle: string, modalComponent: React.ReactNode) => {
+    setTitle(modalTitle);
     // @ts-ignore TODO see this further but i think it's fine
-    setComponent(component);
+    setComponent(modalComponent);
     setOpen(true);
   };
 

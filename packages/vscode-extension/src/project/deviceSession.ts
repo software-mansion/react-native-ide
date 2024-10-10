@@ -11,8 +11,6 @@ import {
   StartupMessage,
   TouchPoint,
 } from "../common/Project";
-import { DevicePlatform } from "../common/DeviceManager";
-import { AndroidEmulatorDevice } from "../devices/AndroidEmulatorDevice";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import { DebugSession, DebugSessionDelegate } from "../debugging/DebugSession";
 import { throttle } from "../utilities/throttle";

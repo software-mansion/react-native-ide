@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, MouseEvent } from "react";
-import { vscode } from "../utilities/vscode";
+import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import Preview from "../components/Preview";
 import IconButton from "../components/shared/IconButton";
 import UrlBar from "../components/UrlBar";
@@ -15,7 +15,6 @@ import { useDevices } from "../providers/DevicesProvider";
 import { useProject } from "../providers/ProjectProvider";
 import DeviceSelect from "../components/DeviceSelect";
 import Button from "../components/shared/Button";
-import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useDiagnosticAlert } from "../hooks/useDiagnosticAlert";
 import { RecordingData, ZoomLevelType } from "../../common/Project";
 import { useUtils } from "../providers/UtilsProvider";

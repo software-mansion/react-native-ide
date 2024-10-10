@@ -94,9 +94,9 @@ const MjpegImg = forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageE
           } catch {
             // Stream connection was dropped
             if (!cancelled) {
-              const src = img.src;
+              const srcCopy = img.src;
               img.src = NO_IMAGE_DATA;
-              img.src = src;
+              img.src = srcCopy;
             }
           }
         }
@@ -222,7 +222,7 @@ function Preview({
   const [showPreviewRequested, setShowPreviewRequested] = useState(false);
 
   const workspace = useWorkspaceConfig();
-  const { projectState, project, deviceSettings } = useProject();
+  const { projectState, project } = useProject();
   const { openFileAt } = useUtils();
 
   const isFrameDisabled = workspace.showDeviceFrame === false;

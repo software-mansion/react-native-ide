@@ -1,6 +1,6 @@
 import { RefObject, useCallback } from "react";
-import IconButton from "./shared/IconButton";
 import * as Select from "@radix-ui/react-select";
+import IconButton from "./shared/IconButton";
 import "./ZoomControls.css";
 import { ZoomLevelType } from "../../common/Project";
 import { DeviceProperties } from "../utilities/consts";
@@ -19,7 +19,7 @@ type ZoomControlsProps = {
 const ZoomLevelSelect = ({ zoomLevel, onZoomChanged }: ZoomControlsProps) => {
   const onValueChange = useCallback(
     (e: string) => {
-      if (e == "Fit") {
+      if (e === "Fit") {
         onZoomChanged("Fit");
         return;
       }

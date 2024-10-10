@@ -1,6 +1,6 @@
 import "./DeviceRemovalConfirmation.css";
-import { DeviceInfo } from "../../common/DeviceManager";
 import { useEffect, useState } from "react";
+import { DeviceInfo } from "../../common/DeviceManager";
 import { useDevices } from "../providers/DevicesProvider";
 import Button from "./shared/Button";
 import { useModal } from "../providers/ModalProvider";

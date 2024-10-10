@@ -1,7 +1,7 @@
-import { commands, env, Uri, window, workspace } from "vscode";
 import { homedir } from "node:os";
 import fs from "fs";
 import path from "path";
+import { commands, env, Uri, window, workspace } from "vscode";
 import JSON5 from "json5";
 import vscode from "vscode";
 import { Logger } from "../Logger";

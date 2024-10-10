@@ -1,13 +1,13 @@
 import "./View.css";
 import "./LaunchConfigurationView.css";
+import { useRef } from "react";
 import Label from "../components/shared/Label";
 import { useLaunchConfig } from "../providers/LaunchConfigProvider";
-import { LaunchConfigUpdater, LaunchConfigurationOptions } from "../../common/LaunchConfig";
+import { LaunchConfigUpdater } from "../../common/LaunchConfig";
 import Select from "../components/shared/Select";
-import { useRef } from "react";
 
 function LaunchConfigurationView() {
-  const { android, appRoot, ios, isExpo, metroConfigPath, env, update, xcodeSchemes } =
+  const { android, appRoot, ios, isExpo, metroConfigPath, update, xcodeSchemes } =
     useLaunchConfig();
 
   return (

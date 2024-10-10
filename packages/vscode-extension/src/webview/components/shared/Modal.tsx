@@ -12,10 +12,6 @@ interface ModalProps {
   headerShown?: boolean;
 }
 
-function preventDefault(e: Event) {
-  e.preventDefault();
-}
-
 export default function Modal({ title, component, open, setOpen, headerShown }: ModalProps) {
   const close = () => setOpen(false);
   return (

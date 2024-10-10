@@ -8,7 +8,6 @@ import { IOSBuildResult } from "./buildIOS";
 import { AndroidBuildResult } from "./buildAndroid";
 import { getLaunchConfiguration } from "../utilities/launchConfiguration";
 import { runfingerprintCommand } from "./customBuild";
-import { CancelToken } from "./cancelToken";
 import { calculateMD5 } from "../utilities/common";
 import { BuildResult } from "./BuildManager";
 

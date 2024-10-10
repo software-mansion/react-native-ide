@@ -1,5 +1,5 @@
 import { ResizeCallback } from "re-resizable";
-import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useState } from "react";
 import { DeviceProperties } from "../utilities/consts";
 import { ZoomLevelType } from "../../common/Project";
 import { DEVICE_DEFAULT_SCALE } from "../components/ZoomControls";

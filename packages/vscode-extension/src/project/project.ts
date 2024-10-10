@@ -29,7 +29,6 @@ import { DebugSessionDelegate } from "../debugging/DebugSession";
 import { Metro, MetroDelegate } from "./metro";
 import { Devtools } from "./devtools";
 import { AppEvent, DeviceSession, EventDelegate } from "./deviceSession";
-import { CancelToken } from "../builders/cancelToken";
 import { PlatformBuildCache } from "../builders/PlatformBuildCache";
 
 const DEVICE_SETTINGS_KEY = "device_settings_v4";
@@ -351,10 +350,10 @@ export class Project
     const waitForNodeModules = this.maybeInstallNodeModules();
 
     Logger.debug(`Launching devtools`);
-    const waitForDevtools = this.devtools.start();
+    this.devtools.start();
 
     Logger.debug(`Launching metro`);
-    const waitForMetro = this.metro.start(
+    this.metro.start(
       forceCleanBuild,
       throttle((stageProgress: number) => {
         this.reportStageProgress(stageProgress, StartupMessage.WaitingForAppToLoad);

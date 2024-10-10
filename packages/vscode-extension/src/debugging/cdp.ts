@@ -1,5 +1,3 @@
-import { Source } from "@vscode/debugadapter";
-
 export type CDPRemoteObject =
   | {
       type: "undefined";
